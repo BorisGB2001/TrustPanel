@@ -1,0 +1,1 @@
+<nav class="tabs">{% for d, l in ((1, _("24 h")), (7, _("7 days")), (30, _("30 days"))) %}<a href="?days={{ d }}{% if group %}&amp;group={{ group }}{% endif %}{{ tab_anchor or '' }}" class="{{ 'on' if d == days }}">{{ l }}</a>{% endfor %}</nav>

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="kpis">
+  <div class="card kpi"><div class="muted">{{ _("Online") }}</div><b>{{ online }}</b><span class="muted"> {{ _("of {n}", n=clients|length) }}</span></div>
+  <div class="card kpi"><div class="muted">{{ _("Downloaded, 24 h") }}</div><b>{{ tx24|size }}</b></div>
+  <div class="card kpi"><div class="muted">{{ _("Uploaded, 24 h") }}</div><b>{{ rx24|size }}</b></div>
+  <div class="card kpi"><div class="muted">{{ _("Peak online, 24 h") }}</div><b>{{ peak }}</b></div>
+  <a class="card kpi" href="/alerts"><div class="muted">{{ _("Alerts") }}</div><b class="{{ 'error' if alerts }}">{{ alerts }}</b><span class="muted"> {{ _("new") }}</span></a>
+  <div class="card kpi"><div class="muted">{{ _("Server polling") }}</div>
+    {% if poll and poll.last_error %}<b class="error">{{ _("error") }}</b><div class="muted small">{{ poll.last_error }}</div>
+    {% elif poll and poll.last_ok %}<b>{{ poll.last_ok|int|ago(now) }}</b>
+    {% else %}<b class="muted">{{ _("not yet") }}</b>{% endif %}
+  </div>
+</section>
+
+<section class="card">
+  <div class="head"><h1>{{ _("Traffic") }}</h1>{% include "tabs.html" %}</div>
+  {{ traffic_chart|safe }}
+  <h2>{{ _("Online") }}</h2>
+  {{ online_chart|safe }}
+</section>
+
+<section class="grid2">
+  <div class="card"><h1>{{ _("Top 10 downloads today") }}</h1>{{ top_today|safe }}</div>
+  <div class="card"><div class="head"><h1>{{ _("Top 10 downloads this month ({month})", month=month) }}</h1><a href="/archive">{{ _("archive") }} →</a></div>{{ top_month|safe }}
+    <p class="muted small">{{ _("A month starts on the 1st at 00:00 Moscow time; totals of past months are in the archive.") }}</p></div>
+</section>
+
+<section class="card">
+  <div class="head">
+    <h1>{{ _("Clients") }}</h1>
+    {% include "group_filter.html" %}
+    <input type="search" id="filter" placeholder="{{ _("Name, login or group") }}" aria-label="{{ _("Search") }}">
+    <select id="status-filter" aria-label="{{ _("Status") }}"><option value="">{{ _("all statuses") }}</option>
+      {% for k in STATUS_KEYS %}<option value="{{ k }}">{{ status_name(k) }}</option>{% endfor %}</select>
+    <details class="add">
+      <summary class="btn">+ {{ _("Add client") }}</summary>
+      <form method="post" action="/peers/add" class="inline-form">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label>{{ _("Name") }} <input name="name" required maxlength="64" placeholder="{{ _("e.g. John iPhone") }}"></label>
+        <label>{{ _("Login") }} <input name="username" maxlength="64" pattern="[A-Za-z0-9._\-]+" placeholder="{{ _("automatically") }}"></label>
+        <label>{{ _("Note") }} <input name="note" maxlength="500"></label>
+        {% if group_list or admin.role != "super" %}
+        <label>{{ _("Group") }} <select name="group_id"{% if admin.role != "super" %} required{% endif %}>
+          {% if admin.role == "super" %}<option value="0">{{ _("no group") }}</option>{% endif %}
+          {% for g in group_list %}<option value="{{ g.id }}"{% if group == g.id|string %} selected{% endif %}>{{ g.name }}</option>{% endfor %}
+        </select></label>
+        {% endif %}
+        <button type="submit">{{ _("Add") }}</button>
+        <p class="muted small">{{ _("The panel generates a password and restarts the TrustTunnel endpoint: connected clients reconnect within a few seconds.") }}</p>
+      </form>
+    </details>
+  </div>
+  <div class="scroll">
+  <table class="tbl sortable" id="clients">
+    <thead><tr>
+      <th>{{ _("Status") }}</th><th>{{ _("Name") }}</th><th>{{ _("Login") }}</th><th>{{ _("Last seen") }}</th><th>{{ _("From") }}</th>
+      <th class="num">{{ _("Today") }} ↓</th><th class="num">{{ _("Today") }} ↑</th><th class="num">{{ _("Total") }} ↓/↑</th>
+    </tr></thead>
+    <tbody>
+    {% for c in clients %}
+      <tr data-status="{{ c.status }}">
+        <td><span class="st st-{{ c.status }}">{{ status_name(c.status) }}</span>
+          {% if c.session_start %}<div class="muted small">{{ (now - c.session_start)|duration }}</div>{% endif %}</td>
+        <td><a href="/peer/{{ c.id }}">{{ c.name }}</a>{% if c.group_name %}<div class="muted small">{{ c.group_name }}</div>{% endif %}</td>
+        <td><code>{{ c.username }}</code></td>
+        <td data-v="{{ c.last_handshake or 0 }}">{{ c.last_handshake|ago(now) }}</td>
+        <td>{% if c.last_endpoint %}{{ c.country|flag }} <code>{{ c.last_endpoint }}</code>
+          <div class="muted small">{{ c.city or "" }}{% if c.city and c.org %} · {% endif %}{{ c.org or "" }}</div>{% else %}—{% endif %}</td>
+        <td class="num" data-v="{{ c.tx_today }}">{{ c.tx_today|size }}</td>
+        <td class="num" data-v="{{ c.rx_today }}">{{ c.rx_today|size }}</td>
+        <td class="num muted" data-v="{{ c.tx_total }}">{{ c.tx_total|size }} / {{ c.rx_total|size }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted small">{{ _("↓ — downloaded by the client, ↑ — uploaded. “Total” — since the panel started watching. “Not seen” — the client has not connected since the panel started watching.") }}</p>
+</section>
+
+<section class="card">
+  <h1>{{ _("Top users, 24 h") }}</h1>
+  <table class="tbl">
+    {% for t in top_clients %}<tr><td><a href="/peer/{{ t.id }}">{{ t.name }}</a></td><td class="num">↓ {{ t.d|size }}</td><td class="num muted">↑ {{ t.u|size }}</td></tr>
+    {% else %}<tr><td class="muted">{{ _("No data.") }}</td></tr>{% endfor %}
+  </table>
+</section>
+
+<section class="card">
+  <h1>{{ _("Events") }}</h1>
+  <table class="tbl">
+    {% for e in events %}
+    <tr><td class="muted nowrap">{{ e.ts|dt }}</td><td>{{ e.name or "" }}</td><td>{{ event_text(e.kind, e.detail) }}</td></tr>
+    {% else %}<tr><td class="muted">{{ _("No events yet.") }}</td></tr>{% endfor %}
+  </table>
+</section>
+{% endblock %}

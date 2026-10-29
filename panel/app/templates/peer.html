@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}{{ peer.name }} — {{ _("TrustPanel") }}{% endblock %}
+{% block content %}
+<p><a href="/">← {{ _("All clients") }}</a></p>
+
+<section class="card">
+  <div class="head">
+    <h1>{{ peer.name }} <span class="st st-{{ peer.status }}">{{ status_name(peer.status) }}</span>
+      {% if extra.deleted_at %}<span class="st st-disabled">{{ _("deleted {when}", when=extra.deleted_at|dt) }}</span>{% endif %}</h1>
+  </div>
+  <dl class="props">
+    <dt>{{ _("Login") }}</dt><dd><code>{{ extra.username }}</code></dd>
+    <dt>{{ _("Group") }}</dt><dd>
+      <form method="post" action="/peer/{{ peer.id }}/group" class="row-form group-form">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <select name="group_id" aria-label="{{ _("Group") }}">
+          {% if admin.role == "super" %}<option value="0">{{ _("no group") }}</option>{% endif %}
+          {% for g in group_list %}<option value="{{ g.id }}"{% if peer_group and g.id == peer_group.id %} selected{% endif %}>{{ g.name }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="secondary small-btn">{{ _("Move") }}</button>
+      </form></dd>
+    <dt>{{ _("Created") }}</dt><dd>{{ peer.created_at|dt("%d.%m.%Y %H:%M") }} · {{ _("in the panel") if extra.source == "panel" else _("in credentials.toml outside the panel") }}</dd>
+    <dt>{{ _("Last seen") }}</dt><dd>{{ peer.last_handshake|ago(now) }}</dd>
+    <dt>{{ _("From") }}</dt><dd>{% if peer.last_endpoint %}{{ peer.country|flag }} <code>{{ peer.last_endpoint }}</code> {{ peer.city or "" }} {{ peer.org or "" }}{% else %}—{% endif %}</dd>
+    <dt>{{ _("Today") }}</dt><dd>↓ {{ peer.tx_today|size }} · ↑ {{ peer.rx_today|size }}</dd>
+    <dt>{{ _("Total") }}</dt><dd>↓ {{ peer.tx_total|size }} · ↑ {{ peer.rx_total|size }}</dd>
+    {% if extra.note %}<dt>{{ _("Note") }}</dt><dd>{{ extra.note }}</dd>{% endif %}
+    <dt>{{ _("Quota") }}</dt><dd>
+      {% set q = quota %}{% include "quota_bar.html" %}
+      {% if group_quota %}<div class="muted small">{{ _("Group quota «{name}»:", name=peer_group.name) }}</div>{% set q = group_quota %}{% include "quota_bar.html" %}{% endif %}
+      {% if extra.quota_blocked %}<div class="warn small">{{ _("Disabled by quota until the next period. “Enable” turns it on now.") }}</div>{% endif %}
+      {% if not extra.deleted_at %}
+      <form method="post" action="/peer/{{ peer.id }}/quota" class="quota-form">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label class="check">{{ _("Quota, GiB") }} <input name="gib" inputmode="decimal" value="{{ '%g'|format(extra.quota_bytes / 1073741824) if extra.quota_bytes else '' }}" placeholder="{{ _("none") }}"></label>
+        <select name="period" aria-label="{{ _("Period") }}">{% for k, v in PERIOD_NAMES.items() %}<option value="{{ k }}"{% if k == extra.quota_period %} selected{% endif %}>{{ _("per") }} {{ _(v) }}</option>{% endfor %}</select>
+        <select name="action" aria-label="{{ _("When exceeded") }}">{% for k, v in ACTION_NAMES.items() %}<option value="{{ k }}"{% if k == extra.quota_action %} selected{% endif %}>{{ _(v) }}</option>{% endfor %}</select>
+        <button type="submit" class="secondary small-btn">{{ _("Save quota") }}</button>
+      </form>{% endif %}</dd>
+  </dl>
+</section>
+
+{% if not extra.deleted_at %}
+<section class="card" id="portal">
+  <h1>{{ _("Client portal") }}</h1>
+  <p>{{ _("Link") }}: {% if portal_on %}<b>{{ _("issued") }}</b>{% else %}<span class="muted">{{ _("not issued") }}</span>{% endif %}
+    · Telegram: {{ contact.tg_name or _("not connected") }}
+    · e-mail: {{ (contact.email ~ (" ✓" if contact.email_verified else " (" ~ _("not confirmed") ~ ")")) if contact.email else _("none") }}
+    · {{ _("daily report") }}: {{ ("%02d:00"|format(contact.daily_hour)) if contact.daily else _("off") }}</p>
+  <div class="row-form">
+    {% for action, label, cls in (("issue", _("Reissue link") if portal_on else _("Issue link"), ""), ("revoke", _("Revoke"), "danger"),
+                                 ("config_off" if portal_config else "config_on", _("Forbid config download") if portal_config else _("Allow config download"), "secondary"),
+                                 ("test", _("Send report now"), "secondary")) %}
+      {% if action != "revoke" or portal_on %}
+      <form method="post" action="/peer/{{ peer.id }}/portal" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="action" value="{{ action }}"><button type="submit" class="{{ cls }}">{{ label }}</button></form>
+      {% endif %}
+    {% endfor %}
+  </div>
+  <form method="post" action="/peer/{{ peer.id }}/contacts" class="contacts-form" id="contacts">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="with_email" value="1">
+    <label>{{ _("Telegram ID") }} <input name="tg_id" inputmode="numeric" value="{{ contact.tg_chat_id or '' }}" placeholder="123456789"></label>
+    <label>E-mail <input type="email" name="email" value="{{ contact.email or '' }}" placeholder="client@example.com"></label>
+    <button type="submit" class="secondary">{{ _("Save contacts") }}</button>
+  </form>
+  <p class="muted small">{{ _("Telegram ID is the client's numeric ID (they can get it from @userinfobot). The bot can write only to someone who pressed “Start” in it once — a test message is sent on saving. Or send the client a bot link from the config page: the ID is filled in by itself.") }}</p>
+  <p class="muted small">{{ _("The client sees only their own data: traffic and connections.") }}{% if portal_config %} {{ _("Config download is allowed.") }}{% endif %} {{ _("The link is shown once; reissuing disables the old one.") }}
+    {% if not (notifier and notifier.tg) %} {{ _("Telegram is not configured: add TELEGRAM_BOT_TOKEN to .env.") }}{% endif %}</p>
+</section>
+{% endif %}
+
+<section class="card">
+  <div class="head"><h1>{{ _("Traffic") }}</h1>{% include "tabs.html" %}</div>
+  {{ traffic_chart|safe }}
+  <h2>{{ _("When active (30 days)") }}</h2>
+  {{ heat|safe }}
+</section>
+
+{% if not extra.deleted_at %}
+<section class="card">
+  <h1>{{ _("Management") }}</h1>
+  <div class="actions">
+    <form method="post" action="/peer/{{ peer.id }}/rename" class="row-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input name="name" value="{{ peer.name }}" required maxlength="64" aria-label="{{ _("New name") }}">
+      <button type="submit">{{ _("Rename") }}</button>
+    </form>
+    {% if peer.disabled %}
+    <form method="post" action="/peer/{{ peer.id }}/enable">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button type="submit">{{ _("Enable") }}</button>
+    </form>
+    {% else %}
+    <form method="post" action="/peer/{{ peer.id }}/disable">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button type="submit" class="secondary">{{ _("Disable") }}</button>
+      <span class="muted small">{{ _("The login is removed from credentials.toml, the panel keeps the password: “Enable” returns the same config.") }}</span>
+    </form>
+    {% endif %}
+    <details>
+      <summary class="btn danger">{{ _("Delete…") }}</summary>
+      <form method="post" action="/peer/{{ peer.id }}/delete" class="row-form">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input name="confirm" required placeholder="{{ _("Type the name: {name}", name=peer.name) }}" aria-label="{{ _("Confirmation") }}">
+        <button type="submit" class="danger">{{ _("Delete permanently") }}</button>
+      </form>
+      <p class="muted small">{{ _("The login is removed from credentials.toml. Its history stays in the panel.") }}</p>
+    </details>
+  </div>
+  {% if extra.has_key %}
+  <p><a class="btn" href="/peer/{{ peer.id }}/config">{{ _("Config, QR and tt:// link") }}</a></p>
+  {% endif %}
+  <details><summary class="btn secondary">{{ _("Issue a new password…") }}</summary>
+    <form method="post" action="/peer/{{ peer.id }}/rekey" class="row-form"><input type="hidden" name="csrf" value="{{ csrf }}">
+      <button type="submit" class="danger">{{ _("Yes, new password — the old config stops working") }}</button></form></details>
+</section>
+{% endif %}
+
+<section class="card">
+  <h1>{{ _("Sessions") }}</h1>
+  <div class="scroll">
+  <table class="tbl">
+    <thead><tr><th>{{ _("Start") }}</th><th>{{ _("End") }}</th><th>{{ _("Duration") }}</th><th>{{ _("From") }}</th><th class="num">↓</th><th class="num">↑</th></tr></thead>
+    {% for s in sessions %}
+    <tr>
+      <td class="nowrap">{{ s.start|dt }}</td>
+      <td class="nowrap">{{ s.end|dt if s.end else _("ongoing") }}</td>
+      <td>{{ ((s.end or now) - s.start)|duration }}</td>
+      <td>{{ s.country|flag }} <code>{{ s.endpoint_ip or "—" }}</code> <span class="muted small">{{ s.org or "" }}</span></td>
+      <td class="num">{{ s.tx|size }}</td><td class="num">{{ s.rx|size }}</td>
+    </tr>
+    {% else %}<tr><td class="muted">{{ _("No sessions yet.") }}</td></tr>{% endfor %}
+  </table>
+  </div>
+</section>
+
+<section class="card">
+  <h1>{{ _("Connected from") }}</h1>
+  <table class="tbl">
+    <thead><tr><th>IP</th><th>{{ _("Country, city") }}</th><th>{{ _("Provider") }}</th><th>{{ _("First seen") }}</th><th>{{ _("Last seen") }}</th></tr></thead>
+    {% for e in endpoints %}
+    <tr><td><code>{{ e.ip }}</code></td><td>{{ e.country|flag }} {{ e.country or "" }} {{ e.city or "" }}</td>
+      <td>{{ e.org or "" }}{% if e.asn %} <span class="muted small">AS{{ e.asn }}</span>{% endif %}</td>
+      <td class="nowrap">{{ e.first_seen|dt }}</td><td class="nowrap">{{ e.last_seen|dt }}</td></tr>
+    {% else %}<tr><td class="muted">{{ _("No data.") }}</td></tr>{% endfor %}
+  </table>
+</section>
+
+<section class="card">
+  <h1>{{ _("Events") }}</h1>
+  <table class="tbl">
+    {% for e in events %}
+    <tr><td class="muted nowrap">{{ e.ts|dt }}</td><td>{{ event_text(e.kind, e.detail) }}</td><td class="muted">{{ e.actor or "" }}</td></tr>
+    {% else %}<tr><td class="muted">{{ _("No events.") }}</td></tr>{% endfor %}
+  </table>
+</section>
+{% endblock %}

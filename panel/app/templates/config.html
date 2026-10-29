@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Config") }}: {{ cfg.name }} — {{ _("TrustPanel") }}{% endblock %}
+{% block content %}
+<p><a href="/peer/{{ peer_id }}">← {{ cfg.name }}</a></p>
+{% if cfg.disabled %}<div class="flash flash-error">{{ _("The client is disabled: the config will not work until it is enabled.") }}</div>{% endif %}
+
+<section class="card" id="send">
+  <h1>{{ _("Send to the client") }}</h1>
+  {% if tg_bot %}
+  <h2>Telegram</h2>
+  {% if contact.tg_chat_id %}
+  <form method="post" action="/peer/{{ peer_id }}/send" class="row-form"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="channel" value="telegram">
+    <button type="submit">{{ _("Send to Telegram ({name})", name=contact.tg_name or "Telegram") }}</button>
+    <span class="muted small">{{ _("file, QR code and tt:// link from @{bot}", bot=tg_bot) }}</span></form>
+  {% endif %}
+  {% if not contact.tg_chat_id %}
+  <form method="post" action="/peer/{{ peer_id }}/contacts" class="row-form"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <input name="tg_id" inputmode="numeric" placeholder="{{ _("Telegram ID, e.g. 123456789") }}" aria-label="{{ _("Telegram ID") }}">
+    <button type="submit" class="secondary">{{ _("Save Telegram ID") }}</button></form>
+  {% endif %}
+  {% if botlink %}
+  <p>{{ _("Link for the client (works once, 7 days) — send it in any messenger:") }}</p>
+  <textarea class="key" readonly rows="2" aria-label="{{ _("Link") }}">{{ botlink }}</textarea>
+  <p class="muted small">{{ _("The client opens it, presses “Start” — @{bot} sends the config and will send notifications.", bot=tg_bot) }}</p>
+  {% else %}
+  <form method="post" action="/peer/{{ peer_id }}/botlink" class="row-form"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <button type="submit" class="secondary">{{ _("Create a bot link for the client") }}</button>
+    <span class="muted small">{{ _("for a client who has not connected Telegram yet") }}</span></form>
+  {% endif %}
+  {% endif %}
+  <h2>E-mail</h2>
+  {% if email_on %}
+  <form method="post" action="/peer/{{ peer_id }}/send" class="row-form"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="channel" value="email">
+    <input type="email" name="to" required value="{{ contact.email if contact.email_verified else '' }}" placeholder="client@example.com" aria-label="E-mail">
+    <button type="submit">{{ _("Send by e-mail") }}</button></form>
+  {% else %}<p class="muted small">{{ _("E-mail is not configured: add SMTP_* to .env on the server.") }}</p>{% endif %}
+</section>
+
+<section class="card">
+  <h1>{{ _("Link for the TrustTunnel app") }}</h1>
+  <p class="muted small">{{ _("In the TrustTunnel app: add a server by scanning the QR code or pasting the tt:// link. Server address: {address}, login: {username}.", address=cfg.address, username=cfg.username) }}</p>
+  <textarea class="key" readonly rows="4" aria-label="tt://">{{ cfg.vpn }}</textarea>
+  <div class="qr"><img src="/peer/{{ peer_id }}/qr/vpn.svg" alt="QR tt://" width="320" height="320"></div>
+</section>
+
+<section class="card">
+  <h1>{{ _("File for the TrustTunnel CLI client") }}</h1>
+  <p><a class="btn" href="/peer/{{ peer_id }}/config.toml">{{ _("Download .toml") }}</a></p>
+  <details><summary class="muted">{{ _("Show config text") }}</summary><pre class="conf">{{ cfg.conf }}</pre></details>
+</section>
+<p class="muted small">{{ _("The config contains the client's password — give it only to the device owner. Every view is logged.") }}</p>
+<section class="card">
+  <h1>{{ _("New config") }}</h1>
+  <p class="muted small">{{ _("If the config leaked: a new password with the same login. The old config stops working; the endpoint restarts, other clients reconnect within a few seconds.") }}</p>
+  <details><summary class="btn danger">{{ _("Issue a new password…") }}</summary>
+    <form method="post" action="/peer/{{ peer_id }}/rekey" class="row-form"><input type="hidden" name="csrf" value="{{ csrf }}">
+      <button type="submit" class="danger">{{ _("Yes, issue a new config") }}</button></form></details>
+</section>
+{% endblock %}

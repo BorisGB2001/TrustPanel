@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Authenticator") }} — {{ _("TrustPanel") }}{% endblock %}
+{% block content %}
+<section class="card login">
+  <h1>{{ _("Set up the authenticator") }}</h1>
+  <p class="muted small">{{ _("First sign-in of “{name}”. Scan the QR code in an authenticator app (Google Authenticator, Aegis, 1Password…) and enter the 6-digit code.", name=username) }}</p>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <div class="qr">{{ qr|safe }}</div>
+  <p class="muted small">{{ _("Or enter the key manually:") }} <code>{{ secret }}</code></p>
+  <form method="post" action="/login/totp" autocomplete="off">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>{{ _("Authenticator code") }} <input name="code" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" required autocomplete="one-time-code" autofocus></label>
+    <button type="submit">{{ _("Confirm") }}</button>
+  </form>
+</section>
+{% endblock %}

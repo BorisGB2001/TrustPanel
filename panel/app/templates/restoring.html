@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Restoring") }} — {{ _("TrustPanel") }}{% endblock %}
+{% block content %}
+<section class="card login">
+  <h1>{{ _("Restoring from the backup") }}</h1>
+  <ul>{% for d in done %}<li>{{ d }}</li>{% endfor %}</ul>
+  <p>{{ _("The panel restarts in a few seconds with the restored database. Then sign in again: the administrators, passwords and TOTP are those from the backup.") }}</p>
+  <p><a class="btn" href="/login">{{ _("Sign in") }}</a></p>
+</section>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Backups") }} — {{ _("TrustPanel") }}{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>{{ _("Backups") }}</h1>
+  {% if admin.role == "super" %}
+  <p>{{ _("Your backup is the whole portal: the panel database, its settings (.env: administrator password and TOTP, keys, bot token, mail), the key that encrypts client passwords (data.key) and the TrustTunnel settings (credentials, vpn, hosts, rules, certificates). It is enough to set up a new server and continue working.") }}</p>
+  {% else %}
+  <p>{{ _("Your backup covers your groups ({groups}): the client list (CSV) and the client configs (.toml and tt://).", groups=my_groups|join(", ") or "—") }}</p>
+  {% endif %}
+  <p class="muted small">{{ _("The file is always encrypted with your backup password (AES-256): it contains private keys. Keep the password: without it the backup cannot be opened. Decrypt with: docker compose exec panel python -m app.backup decrypt <file>") }}</p>
+</section>
+
+<section class="card">
+  <h1>{{ _("Settings") }}</h1>
+  <form method="post" action="/backups/save" class="prefs" autocomplete="off">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="check"><input type="checkbox" name="enabled" value="1"{% if job.enabled %} checked{% endif %}> {{ _("Send backups on schedule") }}</label>
+    <div class="quota-form">
+      <select name="period" aria-label="{{ _("Period") }}">
+        <option value="daily"{% if job.period == "daily" %} selected{% endif %}>{{ _("every day") }}</option>
+        <option value="weekly"{% if job.period == "weekly" %} selected{% endif %}>{{ _("every week") }}</option></select>
+      <select name="weekday" aria-label="{{ _("Day of week") }}">{% for d in range(7) %}<option value="{{ d }}"{% if job.weekday == d %} selected{% endif %}>{{ _(WEEKDAYS[d]) }}</option>{% endfor %}</select>
+      <select name="hour" aria-label="{{ _("Hour") }}">{% for h in range(24) %}<option value="{{ h }}"{% if job.hour == h %} selected{% endif %}>{{ "%02d:00"|format(h) }}</option>{% endfor %}</select>
+      <span class="muted small">{{ _("Moscow time; the day of week is used for weekly backups") }}</span>
+    </div>
+    <h2>{{ _("Where to send") }}</h2>
+    <label class="check"><input type="checkbox" name="to_telegram" value="1"{% if job.to_telegram %} checked{% endif %}> Telegram
+      {% if not tg_bot %}<span class="muted small">— {{ _("the bot is not configured") }}</span>
+      {% elif not admin.tg_chat_id %}<span class="muted small">— <a href="/account">{{ _("connect Telegram on the My account page") }}</a></span>
+      {% else %}<span class="muted small">— {{ admin.tg_name or "Telegram" }}</span>{% endif %}</label>
+    <div class="quota-form">
+      <label class="check"><input type="checkbox" name="to_email" value="1"{% if job.to_email %} checked{% endif %}> E-mail</label>
+      <input type="email" name="email" value="{{ job.email or '' }}" placeholder="admin@example.com" aria-label="E-mail">
+      {% if not email_on %}<span class="muted small">{{ _("E-mail is not configured: add SMTP_* to .env on the server.") }}</span>{% endif %}
+    </div>
+    <h2>{{ _("Archive password") }}</h2>
+    <div class="quota-form">
+      <input type="password" name="password" minlength="8" autocomplete="new-password"
+             placeholder="{{ _("set (8+ characters)") if not job.pass_enc else _("unchanged — type to change") }}" aria-label="{{ _("Archive password") }}">
+      {% if job.pass_enc %}<span class="st st-online">{{ _("set") }}</span>{% endif %}
+    </div>
+    <p><button type="submit">{{ _("Save") }}</button></p>
+  </form>
+  <form method="post" action="/backups/run" class="row-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button type="submit" class="secondary">{{ _("Make a backup now") }}</button>
+    {% if job.last_ts %}<span class="small {{ '' if job.last_ok else 'error' }}">{{ _("Last: {when} — {status}", when=job.last_ts|dt, status=job.last_status) }}{% if job.last_size %}, {{ job.last_size|size }}{% endif %}</span>{% endif %}
+  </form>
+</section>
+
+{% if admin.role == "super" %}
+<section class="card" id="restore">
+  <h1>{{ _("Restore from a backup") }}</h1>
+  <p class="muted small">{{ _("On this server: choose the .ttbak file of a portal backup and its password. The TrustTunnel settings are written at once and the endpoint restarts; the database is put in place and the panel restarts. The current state is saved to data/backups first. To move to a new server use restore.sh (README, “Restore from a backup”).") }}</p>
+  <form method="post" action="/backups/restore" enctype="multipart/form-data" class="prefs" autocomplete="off">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>{{ _("Backup file (.ttbak)") }} <input type="file" name="file" accept=".ttbak" required></label>
+    <label>{{ _("Archive password") }} <input type="password" name="password" required autocomplete="off"></label>
+    <label class="check"><input type="checkbox" name="part_db" value="1" checked> {{ _("Panel database: clients, history, groups, administrators, settings") }}</label>
+    <label class="check"><input type="checkbox" name="part_tt" value="1" checked> {{ _("TrustTunnel settings: credentials, vpn, hosts, rules, certificates") }}</label>
+    <label>{{ _("Type RESTORE to confirm") }} <input name="confirm" required pattern="[Rr][Ee][Ss][Tt][Oo][Rr][Ee]" placeholder="RESTORE"></label>
+    <button type="submit" class="danger">{{ _("Restore") }}</button>
+  </form>
+</section>
+{% endif %}
+
+{% if history %}
+<section class="card">
+  <h1>{{ _("History") }}</h1>
+  <table class="tbl">{% for e in history %}<tr class="{{ 'alert' if e.kind == 'alert_backup' else '' }}"><td class="nowrap">{{ e.ts|dt }}</td><td>{{ event_text(e.kind, e.detail) }}</td></tr>{% endfor %}</table>
+</section>
+{% endif %}
+{% endblock %}

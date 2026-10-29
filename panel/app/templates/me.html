@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ me.name }} — {{ _("My VPN") }}{% endblock %}
+{% block content %}
+<header class="me-top">
+  <b>{{ _("My VPN") }}</b>
+  <span class="prefs-bar">{% include "theme.html" %}{% include "lang.html" %}</span>
+  <form method="post" action="/me/logout" class="inline"><button type="submit" class="link">{{ _("Sign out") }}</button></form>
+</header>
+
+<section class="kpis">
+  <div class="card kpi"><div class="muted">{{ me.name }}</div><span class="st st-{{ me.status }}">{{ status_name(me.status) }}</span>
+    <div class="muted small">{{ _("Login {username}", username=me.username) }}</div></div>
+  <div class="card kpi"><div class="muted">{{ _("Downloaded today") }}</div><b>{{ me.tx_today|size }}</b></div>
+  <div class="card kpi"><div class="muted">{{ _("Uploaded today") }}</div><b>{{ me.rx_today|size }}</b>
+    {% if quota %}<div class="muted small">{{ _("Quota") }}</div>{% set q = quota %}{% include "quota_bar.html" %}{% endif %}</div>
+  <div class="card kpi"><div class="muted">{{ _("Last connection") }}</div><b>{{ me.last_handshake|ago(now) }}</b>
+    <div class="muted small">{{ me.country|flag }} {{ me.last_endpoint or "" }} {{ me.org or "" }}</div></div>
+</section>
+
+<section class="card">
+  <div class="head"><h1>{{ _("Traffic") }}</h1>{% include "tabs.html" %}</div>
+  {{ traffic_chart|safe }}
+  <p><a href="/me/stats.png" target="_blank">{{ _("Today's report as a picture") }} →</a></p>
+</section>
+
+<section class="card" id="notify">
+  <h1>{{ _("Notifications") }}</h1>
+  {% if tg_bot %}
+    <h2>Telegram</h2>
+    {% if contact.tg_chat_id %}
+    <p>{{ _("Connected: {name}. Notifications come from @{bot}; /stats there sends today's statistics.", name=contact.tg_name or "Telegram", bot=tg_bot) }}</p>
+    <form method="post" action="/me/telegram/unlink" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}">
+      <button type="submit" class="secondary small-btn">{{ _("Disconnect Telegram") }}</button></form>
+    {% else %}
+    <p class="muted small">{{ _("Press the button: Telegram opens the @{bot} bot, press “Start” there — and this chat gets your notifications and the daily report. The link works for an hour.", bot=tg_bot) }}</p>
+    <form method="post" action="/me/telegram"><input type="hidden" name="csrf" value="{{ csrf }}">
+      <button type="submit">{{ _("Connect Telegram") }}</button></form>
+    {% endif %}
+  {% else %}<p class="muted small">{{ _("Telegram is not configured by the administrator yet.") }}</p>{% endif %}
+  {% if email_on %}
+  <form method="post" action="/me/email" class="row-form"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="email" name="email" value="{{ contact.email or '' }}" placeholder="{{ _("e-mail for notifications") }}" aria-label="E-mail">
+    <button type="submit" class="secondary">{{ _("Save") }}</button>
+    {% if contact.email %}<span class="small {{ '' if contact.email_verified else 'error' }}">{{ _("confirmed") if contact.email_verified else _("check your mail and open the confirmation link") }}</span>{% endif %}
+  </form>
+  {% endif %}
+  <form method="post" action="/me/prefs" class="prefs"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="check"><input type="checkbox" name="daily" value="1" {{ 'checked' if contact.daily }}> {{ _("Daily report as a picture (today's chart and connections) at") }}
+      <select name="hour" aria-label="{{ _("Hour") }}">{% for h in range(24) %}<option value="{{ h }}" {{ 'selected' if h == contact.daily_hour }}>{{ "%02d:00"|format(h) }}</option>{% endfor %}</select> {{ _("Moscow time") }}</label>
+    <label class="check"><input type="checkbox" name="events" value="1" {{ 'checked' if contact.events }}> {{ _("Notifications: sign-in from a new country, connection from another device, disabling") }}</label>
+    <button type="submit" class="secondary">{{ _("Save") }}</button>
+  </form>
+</section>
+
+{% if can_config %}
+<section class="card">
+  <h1>{{ _("My config") }}</h1>
+  <div class="qr"><img src="/me/qr/vpn.svg" alt="QR TrustTunnel" width="280" height="280"></div>
+  <p class="muted small">{{ _("QR for the TrustTunnel app. Do not share it — it is your personal password.") }}</p>
+  <p><a class="btn secondary" href="/me/config.toml">{{ _("Download .toml") }}</a></p>
+</section>
+{% endif %}
+
+<section class="card">
+  <h1>{{ _("Sessions") }}</h1>
+  <div class="scroll"><table class="tbl">
+    <thead><tr><th>{{ _("Start") }}</th><th>{{ _("Duration") }}</th><th>{{ _("From") }}</th><th class="num">↓</th><th class="num">↑</th></tr></thead>
+    {% for s in sessions %}<tr><td class="nowrap">{{ s.start|dt }}</td><td>{{ ((s.end or now) - s.start)|duration }}{% if not s.end %} · {{ _("ongoing") }}{% endif %}</td>
+      <td>{{ s.country|flag }} <code>{{ s.endpoint_ip or "—" }}</code> <span class="muted small">{{ s.org or "" }}</span></td>
+      <td class="num">{{ s.tx|size }}</td><td class="num">{{ s.rx|size }}</td></tr>
+    {% else %}<tr><td class="muted">{{ _("No connections yet.") }}</td></tr>{% endfor %}
+  </table></div>
+</section>
+{% endblock %}

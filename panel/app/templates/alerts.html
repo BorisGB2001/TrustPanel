@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Alerts") }} — {{ _("TrustPanel") }}{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="head">
+    <h1>{{ _("Alerts for {n} days", n=days) }}</h1>
+    <form method="post" action="/alerts/ack"><input type="hidden" name="csrf" value="{{ csrf }}">
+      <button type="submit" class="secondary">{{ _("Mark all as read") }}</button></form>
+  </div>
+  <div class="scroll">
+  <table class="tbl">
+    {% for e in rows %}
+    <tr class="{{ '' if e.acked else 'alert' }}"><td class="muted nowrap">{{ e.ts|dt }}</td>
+      <td>{% if e.peer_id %}<a href="/peer/{{ e.peer_id }}">{{ e.name }}</a>{% endif %}</td>
+      <td>{{ event_text(e.kind, e.detail) }}</td>
+      <td>{% if not e.acked %}<form method="post" action="/alerts/ack" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="alert_id" value="{{ e.id }}"><button type="submit" class="secondary small-btn">{{ _("Read") }}</button></form>{% endif %}</td></tr>
+    {% else %}<tr><td class="muted">{{ _("No alerts.") }}</td></tr>{% endfor %}
+  </table>
+  </div>
+  <p class="muted small">{{ _("Checks run every 5 minutes. “Config on several devices” — frequent IP changes between different providers (a normal Wi-Fi ↔ mobile switch may cause a false alarm). “Never connected” and “inactive for a long time” — a weekly summary, starting after 7 days of watching.") }}</p>
+</section>
+{% endblock %}

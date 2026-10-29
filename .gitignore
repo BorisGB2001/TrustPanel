@@ -1,0 +1,9 @@
+.env
+data/
+.venv/
+# the real deploy target stays local (public repository)
+.deploy-host
+__pycache__/
+.pytest_cache/
+.DS_Store
+caddy/

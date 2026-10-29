@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Server") }} — {{ _("TrustPanel") }}{% endblock %}
+{% block content %}
+{% for e in info.errors %}<div class="flash flash-error">{{ e }}</div>{% endfor %}
+<section class="kpis compact">
+  <div class="card kpi"><div class="muted kpi-head"><span>{{ _("Uptime") }}</span><span class="small">PID {{ info.pid or "—" }}</span></div>
+    <b>{{ (now - info.started)|duration if info.started else "—" }}</b>
+    <div class="muted small">{{ _("since {when}", when=info.started|dt("%d.%m %H:%M")) }}</div></div>
+  <div class="card kpi"><div class="muted">{{ _("Load 1/5/15") }}</div><b>{{ info.load|join(" / ") if info.load else "—" }}</b><div class="muted small">{{ _("CPU cores: {n}", n=info.cpus) }}</div></div>
+  <div class="card kpi"><div class="muted">{{ _("Memory") }}</div><b>{{ info.mem[0]|size if info.mem else "—" }}</b><div class="muted small">{{ _("of {n}", n=info.mem[1]|size) if info.mem else "" }}</div></div>
+  <div class="card kpi"><div class="muted">{{ _("Disk") }}</div><b>{{ info.disk[0]|size }}</b><div class="muted small">{{ _("of {n}", n=info.disk[1]|size) }}</div></div>
+  <div class="card kpi"><div class="muted">{{ _("Connections") }}</div><b>{{ info.conntrack[0] if info.conntrack else "—" }}</b><div class="muted small">{{ _("of {n}", n=info.conntrack[1]) if info.conntrack else "" }}</div></div>
+  <div class="card kpi"><div class="muted">{{ _("Panel database") }}</div><b>{{ info.db_size|size }}</b><div class="muted small">{{ _("DB-IP from {date}", date=info.geo or "—") }}</div></div>
+</section>
+
+<section class="card">
+  <h1>{{ _("Panel collectors") }}</h1>
+  <table class="tbl">
+    {% for name, st in info.collectors.items() %}
+    <tr><td>{{ _(name) }}</td>
+      <td>{% if not st %}<span class="muted">{{ _("not running") }}</span>{% elif st[1] %}<span class="error">{{ st[1] }}</span>{% else %}<span class="st st-online">{{ _("running") }}</span>{% endif %}</td>
+      <td class="muted small">{% if st and st[0] %}{{ _("last poll {when}", when=st[0]|int|ago(now)) }}{% elif st and st|length > 2 %}{{ st[2] }}{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+</section>
+
+<section class="card">
+  <h1>TrustTunnel</h1>
+  <p class="muted small">{{ info.version or "" }}{% if info.state %} · {{ info.state }}{% endif %}</p>
+  <div class="params">{% for k, v in (info.params or {}).items() %}<div class="param"><div class="muted small">{{ k }}</div><code>{{ v }}</code></div>{% endfor %}</div>
+  {% if info.metrics %}<h2>{{ _("Endpoint metrics") }}</h2>
+  <div class="params">{% for k, v in info.metrics.items() %}<div class="param"><div class="muted small">{{ k }}</div><code>{{ v|size if k.startswith("process_resident") else v }}</code></div>{% endfor %}</div>{% endif %}
+  <p class="muted small">{{ _("Read-only parameters from vpn.toml and hosts.toml in /opt/trusttunnel. Change them there and restart the trusttunnel service.") }}</p>
+</section>
+
+<section class="card">
+  <h1>{{ _("Configuration backups") }}</h1>
+  <p class="muted small">{{ _("Before every client change the panel saves credentials.toml to /opt/trust-panel/data/backups (total {n}, the last 200 are kept). Latest:", n=info.backups_total) }}</p>
+  <ul class="small">{% for b in info.backups %}<li><code>{{ b }}</code></li>{% else %}<li class="muted">{{ _("none") }}</li>{% endfor %}</ul>
+</section>
+{% endblock %}

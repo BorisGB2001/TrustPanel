@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Groups") }} — {{ _("TrustPanel") }}{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="head"><h1>{{ _("Groups") }}</h1>{% if rows %}<a class="btn" href="/groups.csv">CSV</a>{% endif %}</div>
+  <div class="scroll"><table class="tbl">
+    <thead><tr><th>{{ _("Group") }}</th><th class="num">{{ _("Clients") }}</th><th class="num">{{ _("online") }}</th>
+      <th class="num">{{ _("Today") }} ↓/↑</th><th class="num">{{ _("This month") }} ↓/↑</th><th>{{ _("Quota") }}</th><th>{{ _("Administrators") }}</th></tr></thead>
+    {% for g in rows %}
+    <tr>
+      <td><a href="/?group={{ g.id }}"><b>{{ g.name }}</b></a>{% if g.note %}<div class="muted small">{{ g.note }}</div>{% endif %}</td>
+      <td class="num">{{ g.clients }}</td><td class="num">{{ g.online }}</td>
+      <td class="num">{{ g.d_today|size }} / {{ g.u_today|size }}</td>
+      <td class="num">{{ g.d_month|size }} / {{ g.u_month|size }}</td>
+      <td>{% set q = g.quota %}{% include "quota_bar.html" %}{% if not q %}<span class="muted small">—</span>{% endif %}
+        {% if g.quota and g.quota_action == "disable" %}<div class="muted small">{{ _(ACTION_NAMES["disable"]) }}</div>{% endif %}</td>
+      <td class="small">{{ g.admins|join(", ") if g.admins else "—" }}</td>
+    </tr>
+    {% else %}<tr><td class="muted">{{ _("No groups yet.") }}</td></tr>{% endfor %}
+    {% if admin.role == "super" %}
+    <tr><td><a href="/?group=0" class="muted">{{ _("no group") }}</a></td><td class="num">{{ nogroup }}</td><td colspan="5" class="muted small">{{ _("Logins added to credentials.toml outside the panel get here; only super administrators see them.") }}</td></tr>
+    {% endif %}
+  </table></div>
+</section>
+
+{% if chart and rows|length > 1 %}
+<section class="card">
+  <h1>{{ _("Traffic this month by group") }}</h1>
+  {{ chart|safe }}
+</section>
+{% endif %}
+
+{% if admin.role == "super" %}
+<section class="card">
+  <h1>{{ _("Add a group") }}</h1>
+  <form method="post" action="/groups/add" class="row-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input name="name" required maxlength="64" placeholder="{{ _("Name, e.g. Office Moscow") }}" aria-label="{{ _("Name") }}">
+    <input name="note" maxlength="200" placeholder="{{ _("Note") }}" aria-label="{{ _("Note") }}">
+    <button type="submit">{{ _("Add") }}</button>
+  </form>
+  <p class="muted small">{{ _("Move clients into a group on the client card. Group administrators are assigned on the Administrators page.") }}</p>
+  <p class="muted small">{{ _("A quota counts downloaded + uploaded traffic of all clients of the group per day or calendar month. At 80 % and 100 % an alert is raised; with “disable” the group's clients are switched off until the next period starts. Leave the quota empty to remove it.") }}</p>
+</section>
+
+{% if rows %}
+<section class="card">
+  <h1>{{ _("Edit groups") }}</h1>
+  {% for g in rows %}
+  <div class="row-form">
+    <form method="post" action="/groups/{{ g.id }}/update" class="row-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input name="name" value="{{ g.name }}" required maxlength="64" aria-label="{{ _("Name") }}">
+      <input name="note" value="{{ g.note or '' }}" maxlength="200" placeholder="{{ _("Note") }}" aria-label="{{ _("Note") }}">
+      <button type="submit" class="secondary small-btn">{{ _("Save") }}</button>
+    </form>
+    <form method="post" action="/groups/{{ g.id }}/quota" class="quota-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label class="check">{{ _("Quota, GiB") }} <input name="gib" inputmode="decimal" value="{{ '%g'|format(g.quota_bytes / 1073741824) if g.quota_bytes else '' }}" placeholder="{{ _("none") }}"></label>
+      <select name="period" aria-label="{{ _("Period") }}">{% for k, v in PERIOD_NAMES.items() %}<option value="{{ k }}"{% if k == g.quota_period %} selected{% endif %}>{{ _("per") }} {{ _(v) }}</option>{% endfor %}</select>
+      <select name="action" aria-label="{{ _("When exceeded") }}">{% for k, v in ACTION_NAMES.items() %}<option value="{{ k }}"{% if k == g.quota_action %} selected{% endif %}>{{ _(v) }}</option>{% endfor %}</select>
+      <button type="submit" class="secondary small-btn">{{ _("Save quota") }}</button>
+    </form>
+    <details class="inline-details"><summary class="btn danger small-btn">{{ _("Delete…") }}</summary>
+      <form method="post" action="/groups/{{ g.id }}/delete" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}">
+        <button type="submit" class="danger small-btn">{{ _("Delete the group (clients stay, without a group)") }}</button></form>
+    </details>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

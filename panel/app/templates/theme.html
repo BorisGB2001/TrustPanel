@@ -1,0 +1,1 @@
+<nav class="lang theme" aria-label="{{ _("Theme") }}">{% for mode, icon, name in [("light", "☀", N_("Light")), ("dark", "☾", N_("Dark")), ("auto", "◐", N_("System"))] %}<a href="/theme/{{ mode }}" class="{{ 'on' if mode == theme }}" title="{{ _(name) }}" aria-label="{{ _(name) }}">{{ icon }}</a>{% endfor %}</nav>

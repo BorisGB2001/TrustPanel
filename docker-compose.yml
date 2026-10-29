@@ -1,0 +1,43 @@
+# boris.gb 2026-10-30 00:29 - TrustPanel: monitoring and management of a TrustTunnel endpoint (systemd service on the host)
+name: trust-panel
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+
+services:
+  panel:
+    # build in the host network: some hosts have no DNS inside the bridge build network
+    build:
+      context: ./panel
+      network: host
+    image: trust-panel:latest
+    container_name: trust-panel
+    restart: unless-stopped
+    # host net — metrics of the endpoint on 127.0.0.1:1987; pid: host + privileged — nsenter into PID 1 for systemctl
+    network_mode: host
+    pid: host
+    privileged: true
+    env_file: .env
+    volumes:
+      - ./data:/data
+      # .env read-only inside the panel: it goes into the full (encrypted) portal backup
+      - ./.env:/srv/host.env:ro
+      # boris.gb 2026-10-30 00:29 - TrustTunnel endpoint directory: credentials.toml is written by the panel, the static binary exports configs
+      - ${TT_DIR:-/opt/trusttunnel}:${TT_DIR:-/opt/trusttunnel}
+    logging: *logging
+
+  caddy:
+    image: caddy:2.11.7
+    container_name: trust-panel-caddy
+    restart: unless-stopped
+    # host net: Caddy listens only on PANEL_PORT (no port 80) and proxies to 127.0.0.1:PANEL_BIND_PORT
+    network_mode: host
+    env_file: .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/data:/data
+      - ./caddy/config:/config
+    logging: *logging

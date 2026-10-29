@@ -1,0 +1,2 @@
+{% if q %}<div class="quota"><meter min="0" max="100" low="80" high="99.99" optimum="0" value="{{ [q.pct, 100]|min }}">{{ q.pct }} %</meter>
+<span class="small">{{ q.used|size }} / {{ q.limit|size }} {{ _("per") }} {{ _(PERIOD_NAMES[q.period]) }} · {{ q.pct }} %</span></div>{% endif %}

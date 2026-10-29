@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Archive") }} — {{ _("TrustPanel") }}{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="head">
+    <h1>{{ _("Monthly archive") }}</h1>
+    {% include "group_filter.html" %}
+    {% if months %}<nav class="tabs">{% for m in months %}<a href="?month={{ m }}" class="{{ 'on' if m == month }}">{{ m }}</a>{% endfor %}</nav>{% endif %}
+  </div>
+  {% if not months %}<p class="muted">{{ _("The archive is empty: the first month gets here on the 1st at 00:00 Moscow time.") }}</p>{% else %}
+  <p>{{ _("In {month}: downloaded {down}, uploaded {up}.", month=month, down=total[0]|size, up=total[1]|size) }} <a class="btn" href="/archive/{{ month }}.csv{% if group %}?group={{ group }}{% endif %}">CSV</a></p>
+  {% if group_totals|length > 1 %}
+  <h2>{{ _("By group") }}</h2>
+  <table class="tbl compact-tbl">
+    <thead><tr><th>{{ _("Group") }}</th><th class="num">{{ _("Clients") }}</th><th class="num">{{ _("Downloaded") }}</th><th class="num">{{ _("Uploaded") }}</th></tr></thead>
+    {% for name, v in group_totals %}<tr><td>{{ name }}</td><td class="num">{{ v[2] }}</td><td class="num">{{ v[0]|size }}</td><td class="num">{{ v[1]|size }}</td></tr>{% endfor %}
+  </table>
+  {% endif %}
+  <h2>{{ _("Top 10 downloads") }}</h2>
+  {{ chart|safe }}
+  <div class="scroll">
+  <table class="tbl">
+    <thead><tr><th>{{ _("Client") }}</th><th>IP</th><th class="num">{{ _("Downloaded") }}</th><th class="num">{{ _("Uploaded") }}</th><th class="num">{{ _("Sessions") }}</th><th class="num">{{ _("Online") }}</th></tr></thead>
+    {% for r in rows %}<tr><td><a href="/peer/{{ r.peer_id }}">{{ r.name }}</a></td><td><code>{{ r.ip }}</code></td>
+      <td class="num">{{ r.tx|size }}</td><td class="num">{{ r.rx|size }}</td><td class="num">{{ r.sessions }}</td><td class="num">{{ r.online_sec|duration }}</td></tr>{% endfor %}
+  </table>
+  </div>
+  <p class="muted small">{{ _("Totals are fixed on the 1st at 00:00 Moscow time. Data starts when the panel started watching (28.10.2026).") }}</p>
+  {% endif %}
+</section>
+{% endblock %}

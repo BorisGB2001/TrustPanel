@@ -1,0 +1,1 @@
+<nav class="lang" aria-label="{{ _("Language") }}">{% for code, name in languages() %}<a href="/lang/{{ code }}" class="{{ 'on' if code == lang }}" title="{{ name }}">{{ code|upper }}</a>{% endfor %}</nav>

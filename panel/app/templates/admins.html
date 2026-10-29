@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Administrators") }} — {{ _("TrustPanel") }}{% endblock %}
+{% block content %}
+{% if new_password %}
+<div class="flash flash-ok">{{ _("Temporary password for “{name}”:", name=new_password.username) }} <code>{{ new_password.password }}</code><br>
+  <span class="small">{{ _("It is shown only once. On first sign-in the administrator sets up the authenticator and a new password.") }}</span></div>
+{% endif %}
+<section class="card">
+  <h1>{{ _("Administrators") }}</h1>
+  <div class="scroll"><table class="tbl">
+    <thead><tr><th>{{ _("Username") }}</th><th>{{ _("Role") }}</th><th>{{ _("Groups") }}</th><th>{{ _("Authenticator") }}</th><th>{{ _("Last sign-in") }}</th><th>{{ _("Note") }}</th><th></th></tr></thead>
+    {% for a in rows %}
+    <tr{% if a.disabled %} class="off"{% endif %}>
+      <td><b>{{ a.username }}</b>{% if a.id == admin.id %} <span class="muted small">({{ _("you") }})</span>{% endif %}
+        {% if a.disabled %}<span class="st st-disabled">{{ _("disabled") }}</span>{% endif %}</td>
+      <td>{% if a.env %}{{ _(ROLE_NAMES[a.role]) }}<div class="muted small">{{ _("from .env, init-admin.sh") }}</div>
+        {% else %}<form method="post" action="/admins/{{ a.id }}/role" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}">
+          <select name="role" data-autosubmit aria-label="{{ _("Role") }}">{% for r in roles %}<option value="{{ r }}"{% if r == a.role %} selected{% endif %}>{{ _(ROLE_NAMES[r]) }}</option>{% endfor %}</select>
+          <noscript><button type="submit" class="secondary small-btn">{{ _("Save") }}</button></noscript></form>{% endif %}</td>
+      <td>{% if a.role == "group" %}
+        <form method="post" action="/admins/{{ a.id }}/groups" class="group-checks"><input type="hidden" name="csrf" value="{{ csrf }}">
+          {% for g in group_list %}<label class="check"><input type="checkbox" name="group_ids" value="{{ g.id }}"{% if g.id in member[a.id] %} checked{% endif %}> {{ g.name }}</label>
+          {% else %}<span class="muted small">{{ _("Create groups first.") }}</span>{% endfor %}
+          {% if group_list %}<button type="submit" class="secondary small-btn">{{ _("Save") }}</button>{% endif %}
+        </form>{% if not member[a.id] %}<div class="warn small">{{ _("No groups: sees nothing") }}</div>{% endif %}
+        {% else %}<span class="muted small">{{ _("all") }}</span>{% endif %}</td>
+      <td>{% if a.env or a.totp_enc %}<span class="st st-online">{{ _("set up") }}</span>{% else %}<span class="st">{{ _("on first sign-in") }}</span>{% endif %}
+        {% if a.tg_chat_id %}<div class="muted small">Telegram ✓</div>{% endif %}</td>
+      <td class="nowrap">{{ a.last_login|dt }}<div class="muted small">{{ a.last_ip or "" }}</div></td>
+      <td class="muted small">{{ a.note or "" }}</td>
+      <td class="nowrap">{% if not a.env %}
+        <form method="post" action="/admins/{{ a.id }}/reset" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="secondary small-btn" title="{{ _("New temporary password; the authenticator is set up again") }}">{{ _("Reset") }}</button></form>
+        {% if a.disabled %}
+        <form method="post" action="/admins/{{ a.id }}/enable" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="small-btn">{{ _("Enable") }}</button></form>
+        {% else %}
+        <form method="post" action="/admins/{{ a.id }}/disable" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="secondary small-btn">{{ _("Disable") }}</button></form>
+        {% endif %}
+        <details class="inline-details"><summary class="btn danger small-btn">{{ _("Delete…") }}</summary>
+          <form method="post" action="/admins/{{ a.id }}/delete" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="danger small-btn">{{ _("Delete permanently") }}</button></form>
+        </details>
+      {% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+</section>
+
+<section class="card" id="ip">
+  <h1>{{ _("Access by IP") }}</h1>
+  <p class="muted small">{{ _("The panel (including the sign-in page) opens only from these addresses and subnets. The client portal stays open. Empty list — no restriction. Your current address: {ip}.", ip=my_ip) }}</p>
+  {% if ip_rows %}
+  <table class="tbl compact-tbl">
+    {% for r in ip_rows %}<tr><td><code>{{ r.cidr }}</code>{% if r.note %} <span class="muted small">{{ r.note }}</span>{% endif %}</td>
+      <td class="muted small nowrap">{{ r.created_at|dt }} · {{ r.actor or "" }}</td>
+      <td class="nowrap"><form method="post" action="/admins/ip/{{ r.id }}/delete" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}">
+        <button type="submit" class="danger small-btn">{{ _("Delete") }}</button></form></td></tr>{% endfor %}
+  </table>
+  {% else %}<p><span class="st">{{ _("no restriction") }}</span></p>{% endif %}
+  <form method="post" action="/admins/ip/add" class="row-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input name="cidr" required placeholder="{{ _("address or subnet, e.g. {ip} or 203.0.113.0/24", ip=my_ip) }}" aria-label="{{ _("Address or subnet") }}">
+    <input name="note" maxlength="200" placeholder="{{ _("Note") }}" aria-label="{{ _("Note") }}">
+    <button type="submit">{{ _("Allow") }}</button>
+  </form>
+  <p class="muted small">{{ _("The first address must be your own — the panel will not let you lock yourself out. On the server the list is managed with ./ip-allow.sh list | add <address> [note] | remove <address or number> | clear — it works even if the browser has lost access.") }}</p>
+</section>
+
+<section class="card">
+  <h1>{{ _("Add an administrator") }}</h1>
+  <form method="post" action="/admins/add" class="inline-form wide" autocomplete="off">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>{{ _("Username") }} <input name="username" required pattern="[A-Za-z0-9._@\-]{3,32}" maxlength="32"></label>
+    <label>{{ _("Role") }} <select name="role">{% for r in roles %}<option value="{{ r }}">{{ _(ROLE_NAMES[r]) }}</option>{% endfor %}</select></label>
+    <label>{{ _("Note") }} <input name="note" maxlength="200"></label>
+    <button type="submit">{{ _("Add") }}</button>
+  </form>
+  <p class="muted small">{{ _("The panel generates a temporary password. On first sign-in the administrator scans the authenticator QR code and sets a new password.") }}</p>
+</section>
+{% endblock %}

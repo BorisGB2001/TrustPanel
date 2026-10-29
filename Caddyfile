@@ -1,0 +1,25 @@
+# boris.gb 2026-10-30 00:29 - TrustPanel HTTPS on PANEL_PORT only; port 80 is not used (it may belong to another service),
+# so the certificate comes from Caddy's internal CA instead of Let's Encrypt
+{
+	# HTTPS only, Caddy admin API disabled; no HTTP→HTTPS redirect, so nothing listens on :80
+	admin off
+	auto_https disable_redirects
+}
+
+https://{$PANEL_HOST}:{$PANEL_PORT:15443} {
+	# self-signed by Caddy's local CA: the browser warns once; check the fingerprint on first login
+	# (docker compose exec caddy cat /data/caddy/pki/authorities/local/root.crt — install it to trust the panel)
+	tls internal
+
+	encode gzip
+	reverse_proxy 127.0.0.1:{$PANEL_BIND_PORT:8081}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; form-action 'self'"
+		-Server
+	}
+}

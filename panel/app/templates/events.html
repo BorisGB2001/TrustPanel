@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Events") }} — {{ _("TrustPanel") }}{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="head">
+    <h1>{{ _("Events") }}</h1>
+    {% include "group_filter.html" %}
+    <form method="get" class="row-form">{% if group %}<input type="hidden" name="group" value="{{ group }}">{% endif %}
+      <select name="kind" aria-label="{{ _("Type") }}">{% for k, v in groups.items() %}<option value="{{ k }}" {{ 'selected' if k == kind }}>{{ _(v) }}</option>{% endfor %}</select>
+      <select name="peer_id" aria-label="{{ _("Client") }}"><option value="">{{ _("all clients") }}</option>
+        {% for p in peers %}<option value="{{ p.id }}" {{ 'selected' if p.id|string == peer_id }}>{{ p.name }}</option>{% endfor %}</select>
+      <select name="days" aria-label="{{ _("Period") }}">{% for d in (1, 7, 30, 90, 365) %}<option value="{{ d }}" {{ 'selected' if d == days }}>{{ _("{n} d", n=d) }}</option>{% endfor %}</select>
+      <button type="submit" class="secondary">{{ _("Show") }}</button>
+      <a class="btn" href="/events.csv?days={{ days }}&kind={{ kind|urlencode }}&peer_id={{ peer_id }}{% if group %}&group={{ group }}{% endif %}">CSV</a>
+    </form>
+  </div>
+  <div class="scroll">
+  <table class="tbl">
+    {% for e in rows %}
+    <tr class="{{ 'alert' if e.kind.startswith('alert_') and not e.acked }}"><td class="muted nowrap">{{ e.ts|dt("%d.%m %H:%M:%S") }}</td>
+      <td>{% if e.peer_id %}<a href="/peer/{{ e.peer_id }}">{{ e.name }}</a>{% endif %}</td>
+      <td>{{ event_text(e.kind, e.detail) }}</td><td class="muted small">{{ e.actor or "" }} {{ e.actor_ip or "" }}</td></tr>
+    {% else %}<tr><td class="muted">{{ _("No events.") }}</td></tr>{% endfor %}
+  </table>
+  </div>
+  {% if rows|length == 1000 %}<p class="muted small">{{ _("The last 1000 are shown — the full list is in CSV.") }}</p>{% endif %}
+</section>
+{% endblock %}
