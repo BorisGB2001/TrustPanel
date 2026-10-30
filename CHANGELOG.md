@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1 — 2026-10-30
+
+- Daily report image: the left margin follows the widest axis label (labels like "757.3 MiB" were cut off); in the
+  connections list the value, the bar and the label are laid out by measured text width (the bar overlapped the value);
+  country as a code instead of a flag emoji (the font has no flags); the image height follows the content.
+- Caddyfile: `form-action` also allows `https://t.me` — "Connect Telegram" did nothing because the browser blocked the
+  redirect to the bot.
+
 ## 1.0.0 — 2026-10-30
 
 First release: AWG Panel 1.8.1 ported to TrustTunnel.

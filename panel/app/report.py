@@ -33,7 +33,8 @@ def collect(conn: sqlite3.Connection, peer_id: int, now: int) -> dict:
         h = datetime.datetime.fromtimestamp(r["ts"], fmt.TZ).hour
         hours[h][0] += r["tx"]
         hours[h][1] += r["rx"]
-    top = [(f"{fmt.dt(r['start'], '%H:%M')}  {fmt.flag(r['country'])} {r['endpoint_ip'] or '?'}  {r['org'] or ''}".strip(),
+    # код страны буквами: эмодзи-флагов в шрифте DejaVu нет (рисовались пустыми квадратами)
+    top = [(f"{fmt.dt(r['start'], '%H:%M')}  {r['country'] or ''} {r['endpoint_ip'] or '?'}  {r['org'] or ''}".strip(),
             (r["tx"], r["end"] is None))
            for r in conn.execute("SELECT s.start, s.end, s.endpoint_ip, s.tx, e.country, e.org FROM sessions s LEFT JOIN endpoints e "
                                  "ON e.peer_id = s.peer_id AND e.ip = s.endpoint_ip WHERE s.peer_id = ? AND COALESCE(s.end, ?) >= ? "
@@ -55,14 +56,17 @@ def render(d: dict) -> bytes:
                        online=fmt.duration(d["online"])),
            font=f, fill=MUTED)
     # трафик по часам
-    x0, y0, cw, ch = 90, 140, 860, 300
+    top = max((a + b for a, b in d["hours"]), default=0) or 1
+    ticks = [fmt.size(int(top * (4 - i) / 4)) for i in range(5)]
+    # левое поле — по самой широкой подписи оси, чтобы «757.3 МиБ» не обрезалось краем
+    x0 = 40 + max(g.textlength(s, font=f_small) for s in ticks) + 12
+    y0, cw, ch = 140, W - 40 - x0, 300
     g.text((40, y0 - 6), t("Traffic by hour"), font=f_big, fill=FG)
     y0 += 40
-    top = max((a + b for a, b in d["hours"]), default=0) or 1
-    for i in range(5):
+    for i, label in enumerate(ticks):
         y = y0 + ch * i / 4
         g.line((x0, y, x0 + cw, y), fill=GRID, width=1)
-        g.text((x0 - 10, y), fmt.size(int(top * (4 - i) / 4)), font=f_small, fill=MUTED, anchor="rm")
+        g.text((x0 - 10, y), label, font=f_small, fill=MUTED, anchor="rm")
     bw = cw / 24
     for h, (a, b) in enumerate(d["hours"]):
         x = x0 + h * bw
@@ -84,14 +88,24 @@ def render(d: dict) -> bytes:
     if not d["top"]:
         g.text((40, y), t("No connections today."), font=f, fill=MUTED)
     mx = max((v[0] for _, v in d["top"]), default=0) or 1
+    # колонки по ширине текста: значение справа, перед ним полоса, слева подпись (обрезается по месту)
+    values = [(t("now") + " · " if active else "") + fmt.size(down) for _, (down, active) in d["top"]]
+    val_w = max((g.textlength(v, font=f) for v in values), default=0)
+    bar_x1 = W - 40 - val_w - 20
+    bar_x0 = bar_x1 - 160
     for i, (label, (down, active)) in enumerate(d["top"]):
         yy = y + i * 30
-        g.text((40, yy), label if len(label) <= 44 else label[:43] + "…", font=f, fill=FG)
-        bwid = 200 * down / mx
+        while label and g.textlength(label, font=f) > bar_x0 - 20 - 40:
+            label = label[:-2] + "…"
+        g.text((40, yy), label, font=f, fill=FG)
+        bwid = 160 * down / mx
         if bwid:
-            g.rectangle((580, yy + 5, 580 + bwid, yy + 21), fill=A1)
-        g.text((W - 40, yy), (t("now") + " · " if active else "") + fmt.size(down), font=f, fill=FG, anchor="ra")
-    g.text((40, H - 30), t("TrustPanel · traffic counted by the TrustTunnel endpoint"), font=f_small, fill=MUTED)
+            g.rectangle((bar_x0, yy + 5, bar_x0 + bwid, yy + 21), fill=A1)
+        g.text((W - 40, yy), values[i], font=f, fill=FG, anchor="ra")
+    # высота — по содержимому: без пустого поля под короткой таблицей подключений
+    bottom = min(H, int(y + max(len(d["top"]), 1) * 30 + 40))
+    g.text((40, bottom), t("TrustPanel · traffic counted by the TrustTunnel endpoint"), font=f_small, fill=MUTED)
+    img = img.crop((0, 0, W, bottom + 40))
     buf = io.BytesIO()
     img.save(buf, "PNG", optimize=True)
     return buf.getvalue()
