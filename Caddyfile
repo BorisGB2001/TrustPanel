@@ -19,7 +19,9 @@ https://{$PANEL_HOST}:{$PANEL_PORT:15443} {
 		X-Frame-Options "DENY"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "same-origin"
-		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; form-action 'self'"
+		# boris.gb 2026-10-30 01:07 - form-action also allows https://t.me: "Connect Telegram" posts a form that redirects to the bot,
+		# and browsers apply form-action to that redirect (with 'self' only the button silently did nothing)
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; form-action 'self' https://t.me"
 		-Server
 	}
 }
