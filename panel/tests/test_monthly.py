@@ -2,7 +2,7 @@ from zoneinfo import ZoneInfo
 
 from app import db, monthly
 
-TZ = ZoneInfo("Europe/Moscow")
+TZ = ZoneInfo("UTC")
 
 
 def test_bounds_and_prev():

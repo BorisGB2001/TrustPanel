@@ -19,7 +19,7 @@
           <noscript><button type="submit" class="secondary small-btn">{{ _("Save") }}</button></noscript></form>{% endif %}</td>
       <td>{% if a.role == "group" %}
         <form method="post" action="/admins/{{ a.id }}/groups" class="group-checks"><input type="hidden" name="csrf" value="{{ csrf }}">
-          {% for g in group_list %}<label class="check"><input type="checkbox" name="group_ids" value="{{ g.id }}"{% if g.id in member[a.id] %} checked{% endif %}> {{ g.name }}</label>
+          {% for g in group_list %}<label class="check"><input type="checkbox" name="group_ids" value="{{ g.id }}"{% if g.id in member[a.id] %} checked{% endif %}> {{ g.label }}</label>
           {% else %}<span class="muted small">{{ _("Create groups first.") }}</span>{% endfor %}
           {% if group_list %}<button type="submit" class="secondary small-btn">{{ _("Save") }}</button>{% endif %}
         </form>{% if not member[a.id] %}<div class="warn small">{{ _("No groups: sees nothing") }}</div>{% endif %}

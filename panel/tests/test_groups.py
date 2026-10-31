@@ -41,6 +41,7 @@ def test_group_admin_sees_only_own_clients(client, world):
     conn, ga, gb = world
     page = client.get("/").text
     assert "Анна" in page and "Борис" in page and "Вера" not in page and "Глеб" not in page
+    assert "Traffic today — top 10" in page and 'class="trow"' in page                  # топ — только свои
     ev = client.get("/events").text
     assert "Анна" in ev and "Вера" not in ev and "Глеб" not in ev and "server" not in ev.split("<tbody")[-1][:0] + ""
     al = client.get("/alerts").text
@@ -51,6 +52,9 @@ def test_group_admin_sees_only_own_clients(client, world):
     assert "Вера" not in csv and "Глеб" not in csv
     gp = client.get("/groups").text
     assert ">A<" in gp and ">B<" not in gp and "no group" not in gp
+    assert "by group" in page
+    bars = page.split("by group")[-1].split("</section>")[0] if "by group" in page else ""
+    assert 'href="/?group=%d"' % ga in bars and 'href="/?group=%d"' % gb not in bars    # трафик групп — только свои
 
 
 def test_group_admin_cannot_touch_other_clients(client, world):
@@ -105,21 +109,42 @@ def test_super_admin_group_filter_and_management(client):
         conn.execute("INSERT INTO peers (id, username, name) VALUES (?, ?, ?)", (pid, f"k{pid}", name))
     _login(client)
     tok = _csrf(client.get("/groups").text)
-    client.post("/groups/add", data={"csrf": tok, "name": "  Офис   Москва ", "note": "n"})
+    client.post("/groups/add", data={"csrf": tok, "name": "  Головной   офис ", "note": "n"})
     g = conn.execute("SELECT * FROM groups").fetchone()
-    assert g["name"] == "Офис Москва"
-    assert "already exists" in client.post("/groups/add", data={"csrf": tok, "name": "офис москва"}).text
+    assert g["name"] == "Головной офис"
+    assert "already exists" in client.post("/groups/add", data={"csrf": tok, "name": "головной офис"}).text
     client.post("/peer/1/group", data={"csrf": tok, "group_id": str(g["id"])})
     page = client.get(f"/?group={g['id']}").text
     assert "Анна" in page and "Вера" not in page
-    assert re.search(r'Анна</a><div class="muted small">Офис Москва</div>', page)      # группа под именем
+    assert re.search(r'Анна</a><div class="muted small">Головной офис</div>', page)      # группа под именем
     page = client.get("/?group=0").text
     assert "Вера" in page and "Анна" not in page
-    assert "Офис Москва" in client.get("/groups").text
+    gp = client.get("/groups").text
+    assert "Головной офис" in gp and f'href="/groups?edit={g["id"]}#edit"' in gp and f'href="/groups?delete={g["id"]}#edit"' in gp
+    assert 'id="edit"' not in gp and 'id="edit"' in client.get(f"/groups?edit={g['id']}").text
+    assert 'name="with_clients"' in client.get(f"/groups?delete={g['id']}").text
     client.post(f"/groups/{g['id']}/delete", data={"csrf": tok})
     assert conn.execute("SELECT group_id FROM peers WHERE id = 1").fetchone()[0] is None
     assert groups.all_groups(conn) == []
 
+
+
+def test_delete_group_with_clients(client, monkeypatch):
+    from app import groups, main
+    conn = main.app.state.db
+    for pid, name in ((1, "Анна"), (2, "Вера"), (3, "Глеб")):
+        conn.execute("INSERT INTO peers (id, username, name) VALUES (?, ?, ?)", (pid, f"k{pid}", name))
+    gid = groups.create(conn, "A")
+    conn.execute("UPDATE peers SET group_id = ? WHERE id IN (1, 2)", (gid,))
+    deleted = []
+    fake = type("M", (), {"delete_many": lambda self, ids, **kw: deleted.append(sorted(ids))})()
+    monkeypatch.setattr(main, "manager", lambda request: fake)
+    _login(client)
+    tok = _csrf(client.get("/groups").text)
+    client.post(f"/groups/{gid}/delete", data={"csrf": tok, "with_clients": "1", "confirm": "B"})
+    assert deleted == [] and groups.all_groups(conn)                      # название не совпало — ничего не удалено
+    client.post(f"/groups/{gid}/delete", data={"csrf": tok, "with_clients": "1", "confirm": "A"})
+    assert deleted == [[1, 2]] and groups.all_groups(conn) == []
 
 def test_admin_groups_assignment(client):
     from app import admins, groups, main

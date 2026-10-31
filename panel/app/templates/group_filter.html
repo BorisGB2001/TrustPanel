@@ -4,7 +4,7 @@
   <select name="group" aria-label="{{ _("Group") }}" data-autosubmit>
     <option value="">{{ _("all groups") if admin.role == "super" else _("all my groups") }}</option>
     {% if admin.role == "super" %}<option value="0"{% if group == "0" %} selected{% endif %}>{{ _("no group") }}</option>{% endif %}
-    {% for g in group_list %}<option value="{{ g.id }}"{% if group == g.id|string %} selected{% endif %}>{{ g.name }}</option>{% endfor %}
+    {% for g in group_list %}<option value="{{ g.id }}"{% if group == g.id|string %} selected{% endif %}>{{ g.label }}</option>{% endfor %}
   </select>
   <noscript><button type="submit" class="secondary small-btn">{{ _("Show") }}</button></noscript>
 </form>

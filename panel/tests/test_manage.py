@@ -102,6 +102,15 @@ def test_delete_needs_exact_name_and_frees_login(env):
     m.add("Новый Борис", username="boris")                        # логин свободен для нового клиента
 
 
+def test_delete_many_restarts_once(env):
+    m, tt, d, conn = env
+    ids = [pid_of(conn, "Анна"), pid_of(conn, "Борис")]
+    before = tt.restarts
+    m.delete_many(ids)
+    assert tt.restarts == before + 1 and not {"anna", "boris"} & set(creds(d))
+    assert conn.execute("SELECT COUNT(*) FROM peers WHERE deleted_at IS NOT NULL").fetchone()[0] == 2
+
+
 def test_rekey_changes_password(env):
     m, tt, d, conn = env
     pid = pid_of(conn, "Анна")

@@ -46,7 +46,7 @@ class Settings:
     smtp_from: str = field(default_factory=lambda: os.environ.get("SMTP_FROM", ""))
     smtp_ssl: bool = field(default_factory=lambda: _bool("SMTP_SSL", False))
 
-    tz: str = field(default_factory=lambda: os.environ.get("TZ", "Europe/Moscow"))
+    tz: str = field(default_factory=lambda: os.environ.get("TZ", "UTC"))
     poll_interval: int = field(default_factory=lambda: _int("POLL_INTERVAL", 30))
     online_window: int = field(default_factory=lambda: _int("ONLINE_WINDOW", 180))
     retention_raw_days: int = field(default_factory=lambda: _int("RETENTION_RAW_DAYS", 30))

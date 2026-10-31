@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 
-from . import db, fmt, monthly
+from . import db, fmt, groups, monthly
 from .i18n import t
 
 log = logging.getLogger("quotas")
@@ -89,7 +89,8 @@ def status(conn: sqlite3.Connection, limit: int | None, period: str, peers, now:
 
 
 def group_peers(conn: sqlite3.Connection, group_id: int) -> set[int]:
-    return {r[0] for r in conn.execute("SELECT id FROM peers WHERE group_id = ?", (group_id,))}
+    """Клиенты группы вместе с клиентами её подгрупп."""
+    return groups.peers_of(conn, groups.subtree(conn, {group_id}))
 
 
 class Quotas:

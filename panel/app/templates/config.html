@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _("Config") }}: {{ cfg.name }} — {{ _("TrustPanel") }}{% endblock %}
 {% block content %}
-<p><a href="/peer/{{ peer_id }}">← {{ cfg.name }}</a></p>
+{% include "crumbs.html" %}
 {% if cfg.disabled %}<div class="flash flash-error">{{ _("The client is disabled: the config will not work until it is enabled.") }}</div>{% endif %}
 
 <section class="card" id="send">

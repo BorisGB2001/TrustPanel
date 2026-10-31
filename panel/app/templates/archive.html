@@ -7,7 +7,7 @@
     {% include "group_filter.html" %}
     {% if months %}<nav class="tabs">{% for m in months %}<a href="?month={{ m }}" class="{{ 'on' if m == month }}">{{ m }}</a>{% endfor %}</nav>{% endif %}
   </div>
-  {% if not months %}<p class="muted">{{ _("The archive is empty: the first month gets here on the 1st at 00:00 Moscow time.") }}</p>{% else %}
+  {% if not months %}<p class="muted">{{ _("The archive is empty: the first month gets here on the 1st at 00:00 panel time ({tz}).", tz=TZ_LABEL()) }}</p>{% else %}
   <p>{{ _("In {month}: downloaded {down}, uploaded {up}.", month=month, down=total[0]|size, up=total[1]|size) }} <a class="btn" href="/archive/{{ month }}.csv{% if group %}?group={{ group }}{% endif %}">CSV</a></p>
   {% if group_totals|length > 1 %}
   <h2>{{ _("By group") }}</h2>
@@ -16,7 +16,7 @@
     {% for name, v in group_totals %}<tr><td>{{ name }}</td><td class="num">{{ v[2] }}</td><td class="num">{{ v[0]|size }}</td><td class="num">{{ v[1]|size }}</td></tr>{% endfor %}
   </table>
   {% endif %}
-  <h2>{{ _("Top 10 downloads") }}</h2>
+  <h2>{{ _("Top 10 by traffic") }}</h2>
   {{ chart|safe }}
   <div class="scroll">
   <table class="tbl">
@@ -25,7 +25,7 @@
       <td class="num">{{ r.tx|size }}</td><td class="num">{{ r.rx|size }}</td><td class="num">{{ r.sessions }}</td><td class="num">{{ r.online_sec|duration }}</td></tr>{% endfor %}
   </table>
   </div>
-  <p class="muted small">{{ _("Totals are fixed on the 1st at 00:00 Moscow time. Data starts when the panel started watching (28.10.2026).") }}</p>
+  <p class="muted small">{{ _("Totals are fixed on the 1st at 00:00 panel time ({tz}). Data starts when the panel started watching.", tz=TZ_LABEL()) }}</p>
   {% endif %}
 </section>
 {% endblock %}

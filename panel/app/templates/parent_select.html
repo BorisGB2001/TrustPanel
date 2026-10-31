@@ -1,0 +1,4 @@
+<select name="parent_id" aria-label="{{ _("Parent group") }}">
+  {% if admin.role == "super" %}<option value="">{{ _("top level") }}</option>{% endif %}
+  {% for p in parents %}<option value="{{ p.id }}"{% if p.id == sel %} selected{% endif %}>{{ _("in") }} {{ p.label }}</option>{% endfor %}
+</select>

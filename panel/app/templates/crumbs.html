@@ -1,0 +1,1 @@
+{% if crumbs %}<nav class="crumbs" aria-label="{{ _("Breadcrumbs") }}">{% for label, href in crumbs %}{% if not loop.first %}<span class="sep">›</span>{% endif %}{% if href and not loop.last %}<a href="{{ href }}">{{ label }}</a>{% else %}<span{% if loop.last %} aria-current="page"{% endif %}>{{ label }}</span>{% endif %}{% endfor %}</nav>{% endif %}

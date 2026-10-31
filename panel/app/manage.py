@@ -200,12 +200,25 @@ class Manager:
                 raise ManageError(t("To delete, type the client name exactly."))
             if not row["disabled"]:
                 self._apply("delete", self._without(row["username"]))
-            now = int(time.time())
-            # логин освобождается: новый клиент с тем же логином — уже другая строка истории
-            self.conn.execute("UPDATE peers SET deleted_at = ?, disabled = 0, password_enc = NULL, username = ? WHERE id = ?",
-                              (now, f"{row['username']}#deleted-{peer_id}", peer_id))
-            self.conn.execute("UPDATE sessions SET end = COALESCE(last_active, start) WHERE peer_id = ? AND end IS NULL", (peer_id,))
-            db.event(self.conn, "admin_delete", peer_id, {"name": row["name"], "username": row["username"]}, actor, actor_ip, now)
+            self._mark_deleted(row, actor, actor_ip)
+
+    def delete_many(self, peer_ids: list[int], actor: str | None = None, actor_ip: str | None = None) -> None:
+        """Удалить сразу нескольких клиентов (группу вместе с клиентами) — одним перезапуском endpoint'а."""
+        with self.tt.locked():
+            rows = [self._peer(i) for i in peer_ids]
+            gone = {r["username"] for r in rows if not r["disabled"]}
+            if gone:
+                self._apply("delete", lambda clients: [c for c in clients if c["username"] not in gone])
+            for row in rows:
+                self._mark_deleted(row, actor, actor_ip)
+
+    def _mark_deleted(self, row: sqlite3.Row, actor: str | None, actor_ip: str | None) -> None:
+        peer_id, now = row["id"], int(time.time())
+        # логин освобождается: новый клиент с тем же логином — уже другая строка истории
+        self.conn.execute("UPDATE peers SET deleted_at = ?, disabled = 0, password_enc = NULL, username = ? WHERE id = ?",
+                          (now, f"{row['username']}#deleted-{peer_id}", peer_id))
+        self.conn.execute("UPDATE sessions SET end = COALESCE(last_active, start) WHERE peer_id = ? AND end IS NULL", (peer_id,))
+        db.event(self.conn, "admin_delete", peer_id, {"name": row["name"], "username": row["username"]}, actor, actor_ip, now)
 
     def rekey(self, peer_id: int, actor: str | None = None, actor_ip: str | None = None) -> None:
         """Новый пароль с тем же логином: старый конфиг перестаёт работать, новый выдаёт панель."""

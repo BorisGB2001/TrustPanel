@@ -22,7 +22,7 @@
         <option value="weekly"{% if job.period == "weekly" %} selected{% endif %}>{{ _("every week") }}</option></select>
       <select name="weekday" aria-label="{{ _("Day of week") }}">{% for d in range(7) %}<option value="{{ d }}"{% if job.weekday == d %} selected{% endif %}>{{ _(WEEKDAYS[d]) }}</option>{% endfor %}</select>
       <select name="hour" aria-label="{{ _("Hour") }}">{% for h in range(24) %}<option value="{{ h }}"{% if job.hour == h %} selected{% endif %}>{{ "%02d:00"|format(h) }}</option>{% endfor %}</select>
-      <span class="muted small">{{ _("Moscow time; the day of week is used for weekly backups") }}</span>
+      <span class="muted small">{{ _("panel time ({tz}); the day of week is used for weekly backups", tz=TZ_LABEL()) }}</span>
     </div>
     <h2>{{ _("Where to send") }}</h2>
     <label class="check"><input type="checkbox" name="to_telegram" value="1"{% if job.to_telegram %} checked{% endif %}> Telegram

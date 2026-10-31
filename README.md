@@ -16,12 +16,12 @@ TrustPanel is a port of [AWG Panel](https://github.com/BorisGB2001/awg-panel) (t
 
 ## Features
 
-- **Overview**: online now and peak, traffic for 24 h / 7 / 30 days, top 10 by downloads today and this month, every client with status, last seen, where they connect from (country, city, provider), traffic today and total.
+- **Overview**: online now and peak, traffic for 24 h / 7 / 30 days, top 10 by traffic today and this month (downloaded / uploaded bars, a chart on hover), traffic by group, every client with status, last seen, where they connect from (country, city, provider), traffic today and total.
 - **Client card**: sessions, IP addresses with geo, hourly activity heat map, events, quota, group, portal link and contacts.
 - **Management**: add a client (login generated from the name or set by hand, random password), rename, disable / enable (the panel keeps the password, so the same config works again), delete, issue a new password.
 - **Configs**: `tt://` deep link with a QR code, `.toml` for the CLI client — exported by the endpoint itself (`trusttunnel_endpoint -c`), so they always match the server settings. Send to the client by Telegram or e-mail, or with a one-time bot link.
 - **Events and alerts**: connections, IP changes, a config used from several places, a new country, traffic spikes, quota thresholds, never connected / inactive clients, endpoint restarted or unavailable, disk and connection table, password guessing. Alerts go to administrators' Telegram (with quiet hours).
-- **Groups and administrators**: super administrators see everything; a group administrator sees and manages only the clients of their groups. Traffic quotas per group or client per day / month with an alert or automatic disabling.
+- **Groups and administrators**: groups can be nested (head organisation → branches → departments, any depth), with breadcrumbs on every page; a group's clients, traffic and quota include its subgroups. Super administrators see everything; a group administrator sees and manages only the clients of their groups and their subgroups, and can create, move and delete subgroups. Traffic quotas per group or client per day / month with an alert or automatic disabling.
 - **Client portal** (`/me`, personal link): own traffic, sessions, quota, optional config download, daily report image and notifications in Telegram or e-mail.
 - **Backups** to Telegram / e-mail on a schedule, encrypted with your password (AES-256-GCM, scrypt): the whole portal (DB, `.env`, `data.key`, TrustTunnel settings) or, for a group administrator, the configs of their groups. Restore on the same server from the Backups page or on a new one with `restore.sh`.
 - **Access by IP** to the administrator part, interface in English and Russian, light and dark theme.

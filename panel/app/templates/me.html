@@ -46,7 +46,7 @@
   {% endif %}
   <form method="post" action="/me/prefs" class="prefs"><input type="hidden" name="csrf" value="{{ csrf }}">
     <label class="check"><input type="checkbox" name="daily" value="1" {{ 'checked' if contact.daily }}> {{ _("Daily report as a picture (today's chart and connections) at") }}
-      <select name="hour" aria-label="{{ _("Hour") }}">{% for h in range(24) %}<option value="{{ h }}" {{ 'selected' if h == contact.daily_hour }}>{{ "%02d:00"|format(h) }}</option>{% endfor %}</select> {{ _("Moscow time") }}</label>
+      <select name="hour" aria-label="{{ _("Hour") }}">{% for h in range(24) %}<option value="{{ h }}" {{ 'selected' if h == contact.daily_hour }}>{{ "%02d:00"|format(h) }}</option>{% endfor %}</select> {{ _("panel time ({tz})", tz=TZ_LABEL()) }}</label>
     <label class="check"><input type="checkbox" name="events" value="1" {{ 'checked' if contact.events }}> {{ _("Notifications: sign-in from a new country, connection from another device, disabling") }}</label>
     <button type="submit" class="secondary">{{ _("Save") }}</button>
   </form>

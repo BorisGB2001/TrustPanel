@@ -5,69 +5,92 @@
   <div class="head"><h1>{{ _("Groups") }}</h1>{% if rows %}<a class="btn" href="/groups.csv">CSV</a>{% endif %}</div>
   <div class="scroll"><table class="tbl">
     <thead><tr><th>{{ _("Group") }}</th><th class="num">{{ _("Clients") }}</th><th class="num">{{ _("online") }}</th>
-      <th class="num">{{ _("Today") }} ↓/↑</th><th class="num">{{ _("This month") }} ↓/↑</th><th>{{ _("Quota") }}</th><th>{{ _("Administrators") }}</th></tr></thead>
+      <th class="num">{{ _("Today") }} ↓/↑</th><th class="num">{{ _("This month") }} ↓/↑</th><th>{{ _("Quota") }}</th><th>{{ _("Administrators") }}</th><th></th></tr></thead>
     {% for g in rows %}
     <tr>
-      <td><a href="/?group={{ g.id }}"><b>{{ g.name }}</b></a>{% if g.note %}<div class="muted small">{{ g.note }}</div>{% endif %}</td>
-      <td class="num">{{ g.clients }}</td><td class="num">{{ g.online }}</td>
+      <td class="gname depth{{ [g.depth, 4]|min }}">{% if g.depth %}<span class="muted">└</span> {% endif %}<a href="/?group={{ g.id }}"><b>{{ g.name }}</b></a>{% if g.note %}<div class="muted small">{{ g.note }}</div>{% endif %}</td>
+      <td class="num">{{ g.clients }}{% if g.subs %}<div class="muted small" title="{{ _("in the group itself") }}">{{ _("own: {n}", n=g.own) }}</div>{% endif %}</td><td class="num">{{ g.online }}</td>
       <td class="num">{{ g.d_today|size }} / {{ g.u_today|size }}</td>
       <td class="num">{{ g.d_month|size }} / {{ g.u_month|size }}</td>
       <td>{% set q = g.quota %}{% include "quota_bar.html" %}{% if not q %}<span class="muted small">—</span>{% endif %}
         {% if g.quota and g.quota_action == "disable" %}<div class="muted small">{{ _(ACTION_NAMES["disable"]) }}</div>{% endif %}</td>
       <td class="small">{{ g.admins|join(", ") if g.admins else "—" }}</td>
+      <td class="acts">{% if g.editable %}
+        <a class="icon-btn" href="/groups?edit={{ g.id }}#edit" title="{{ _("Edit the group") }}" aria-label="{{ _("Edit the group") }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z M14 6l4 4"/></svg></a>
+        <a class="icon-btn danger" href="/groups?delete={{ g.id }}#edit" title="{{ _("Delete the group") }}" aria-label="{{ _("Delete the group") }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13 M10 11v6 M14 11v6"/></svg></a>{% endif %}</td>
     </tr>
     {% else %}<tr><td class="muted">{{ _("No groups yet.") }}</td></tr>{% endfor %}
     {% if admin.role == "super" %}
-    <tr><td><a href="/?group=0" class="muted">{{ _("no group") }}</a></td><td class="num">{{ nogroup }}</td><td colspan="5" class="muted small">{{ _("Logins added to credentials.toml outside the panel get here; only super administrators see them.") }}</td></tr>
+    <tr><td><a href="/?group=0" class="muted">{{ _("no group") }}</a></td><td class="num">{{ nogroup }}</td><td colspan="7" class="muted small">{{ _("Logins added to credentials.toml outside the panel get here; only super administrators see them.") }}</td></tr>
     {% endif %}
   </table></div>
 </section>
 
-{% if chart and rows|length > 1 %}
-<section class="card">
-  <h1>{{ _("Traffic this month by group") }}</h1>
-  {{ chart|safe }}
+{% if deleting %}{% set g = deleting %}
+<section class="card" id="edit">
+  <div class="head"><h1>{{ _("Delete the group") }} «{{ g.name }}»</h1><a href="/groups">{{ _("close") }} ✕</a></div>
+  <form method="post" action="/groups/{{ g.id }}/delete" class="del-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% if g.subs %}
+    <fieldset><legend>{{ _("Its subgroups ({n}):", n=g.subs) }}</legend>
+      <label class="check"><input type="radio" name="with_subgroups" value="" checked> {{ _("move to «{name}»", name=g.path.rsplit(" / ", 1)[0]) if g.depth else _("become top-level groups") }}</label>
+      <label class="check"><input type="radio" name="with_subgroups" value="1"> {{ _("delete together with the group") }}</label>
+    </fieldset>
+    {% endif %}
+    {% if g.clients %}
+    <fieldset><legend>{{ _("Clients of the deleted groups:") }}</legend>
+      <label class="check"><input type="radio" name="with_clients" value="" checked> {{ _("stay, without a group") }}</label>
+      <label class="check"><input type="radio" name="with_clients" value="1"> {{ _("delete them too — type the group name:") }}
+        <input name="confirm" autocomplete="off" placeholder="{{ g.name }}" aria-label="{{ _("Group name") }}"></label>
+    </fieldset>
+    <p class="muted small">{{ _("Deleted clients are removed from credentials.toml with one endpoint restart; their history is kept.") }}</p>
+    {% endif %}
+    <button type="submit" class="danger">{{ _("Delete the group") }}</button>
+  </form>
+</section>
+{% endif %}
+{% if editing %}{% set g = editing %}
+<section class="card" id="edit">
+  <div class="head"><h1>{{ _("Edit the group") }} «{{ g.name }}»</h1><a href="/groups">{{ _("close") }} ✕</a></div>
+  <form method="post" action="/groups/{{ g.id }}/update" class="row-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input name="name" value="{{ g.name }}" required maxlength="64" aria-label="{{ _("Name") }}">
+    <input name="note" value="{{ g.note or '' }}" maxlength="200" placeholder="{{ _("Note") }}" aria-label="{{ _("Note") }}">
+    {% set sel = g.parent_id %}{% include "parent_select.html" %}
+    <button type="submit" class="secondary small-btn">{{ _("Save") }}</button>
+  </form>
+  {% if admin.role == "super" %}
+  <form method="post" action="/groups/{{ g.id }}/quota" class="quota-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="check">{{ _("Quota, GiB") }} <input name="gib" inputmode="decimal" value="{{ '%g'|format(g.quota_bytes / 1073741824) if g.quota_bytes else '' }}" placeholder="{{ _("none") }}"></label>
+    <select name="period" aria-label="{{ _("Period") }}">{% for k, v in PERIOD_NAMES.items() %}<option value="{{ k }}"{% if k == g.quota_period %} selected{% endif %}>{{ _("per") }} {{ _(v) }}</option>{% endfor %}</select>
+    <select name="action" aria-label="{{ _("When exceeded") }}">{% for k, v in ACTION_NAMES.items() %}<option value="{{ k }}"{% if k == g.quota_action %} selected{% endif %}>{{ _(v) }}</option>{% endfor %}</select>
+    <button type="submit" class="secondary small-btn">{{ _("Save quota") }}</button>
+  </form>
+  {% endif %}
 </section>
 {% endif %}
 
-{% if admin.role == "super" %}
+{% if chart %}
+<section class="grid2">
+  <div class="card"><h1>{{ _("Traffic today by group") }}</h1>{{ chart[0]|safe }}</div>
+  <div class="card"><h1>{{ _("Traffic this month by group") }}</h1>{{ chart[1]|safe }}</div>
+</section>
+{% endif %}
+
+{% if can_add %}
 <section class="card">
   <h1>{{ _("Add a group") }}</h1>
   <form method="post" action="/groups/add" class="row-form">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <input name="name" required maxlength="64" placeholder="{{ _("Name, e.g. Office Moscow") }}" aria-label="{{ _("Name") }}">
+    <input name="name" required maxlength="64" placeholder="{{ _("Name, e.g. Head office") }}" aria-label="{{ _("Name") }}">
     <input name="note" maxlength="200" placeholder="{{ _("Note") }}" aria-label="{{ _("Note") }}">
+    {% set sel = None %}{% set parents = rows %}{% include "parent_select.html" %}
     <button type="submit">{{ _("Add") }}</button>
   </form>
   <p class="muted small">{{ _("Move clients into a group on the client card. Group administrators are assigned on the Administrators page.") }}</p>
+  <p class="muted small">{{ _("Groups can be nested: a head organisation, its branches, their departments. Clients, traffic and the quota of a group include its subgroups; the administrator of a group also sees and manages its subgroups.") }}</p>
   <p class="muted small">{{ _("A quota counts downloaded + uploaded traffic of all clients of the group per day or calendar month. At 80 % and 100 % an alert is raised; with “disable” the group's clients are switched off until the next period starts. Leave the quota empty to remove it.") }}</p>
 </section>
-
-{% if rows %}
-<section class="card">
-  <h1>{{ _("Edit groups") }}</h1>
-  {% for g in rows %}
-  <div class="row-form">
-    <form method="post" action="/groups/{{ g.id }}/update" class="row-form">
-      <input type="hidden" name="csrf" value="{{ csrf }}">
-      <input name="name" value="{{ g.name }}" required maxlength="64" aria-label="{{ _("Name") }}">
-      <input name="note" value="{{ g.note or '' }}" maxlength="200" placeholder="{{ _("Note") }}" aria-label="{{ _("Note") }}">
-      <button type="submit" class="secondary small-btn">{{ _("Save") }}</button>
-    </form>
-    <form method="post" action="/groups/{{ g.id }}/quota" class="quota-form">
-      <input type="hidden" name="csrf" value="{{ csrf }}">
-      <label class="check">{{ _("Quota, GiB") }} <input name="gib" inputmode="decimal" value="{{ '%g'|format(g.quota_bytes / 1073741824) if g.quota_bytes else '' }}" placeholder="{{ _("none") }}"></label>
-      <select name="period" aria-label="{{ _("Period") }}">{% for k, v in PERIOD_NAMES.items() %}<option value="{{ k }}"{% if k == g.quota_period %} selected{% endif %}>{{ _("per") }} {{ _(v) }}</option>{% endfor %}</select>
-      <select name="action" aria-label="{{ _("When exceeded") }}">{% for k, v in ACTION_NAMES.items() %}<option value="{{ k }}"{% if k == g.quota_action %} selected{% endif %}>{{ _(v) }}</option>{% endfor %}</select>
-      <button type="submit" class="secondary small-btn">{{ _("Save quota") }}</button>
-    </form>
-    <details class="inline-details"><summary class="btn danger small-btn">{{ _("Delete…") }}</summary>
-      <form method="post" action="/groups/{{ g.id }}/delete" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}">
-        <button type="submit" class="danger small-btn">{{ _("Delete the group (clients stay, without a group)") }}</button></form>
-    </details>
-  </div>
-  {% endfor %}
-</section>
-{% endif %}
 {% endif %}
 {% endblock %}

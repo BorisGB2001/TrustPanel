@@ -35,7 +35,7 @@ EVENT_NAMES = {
     "acct_reset": N_("administrator password reset"), "acct_role": N_("administrator role changed"),
     "acct_password": N_("administrator changed password"), "acct_totp_bound": N_("administrator set up the authenticator"),
     "group_created": N_("group created"), "group_renamed": N_("group renamed"), "group_deleted": N_("group deleted"),
-    "group_member": N_("moved to a group"), "acct_groups": N_("administrator groups changed"),
+    "group_member": N_("moved to a group"), "group_moved": N_("group moved"), "acct_groups": N_("administrator groups changed"),
     "acct_telegram": N_("administrator connected Telegram"),
     "alert_quota": N_("traffic quota"), "quota_set": N_("quota changed"),
     "contacts_set": N_("contacts changed"), "backup_sent": N_("backup sent"), "ip_allow_add": N_("panel access allowed from"),
@@ -64,6 +64,15 @@ def size(n: int | None) -> str:
             return f"{n:.0f} {t(unit)}" if unit == "B" else f"{n:.1f} {t(unit)}"
         n /= 1024
     return f"{n:.2f} {t('TiB')}"
+
+
+def tz_label() -> str:
+    """Часовой пояс панели для подписей — смещение от UTC сейчас: «UTC», «UTC+01:00»."""
+    off = datetime.datetime.now(TZ).utcoffset()
+    if not off:
+        return "UTC"
+    m = int(off.total_seconds()) // 60
+    return f"UTC{'+' if m > 0 else '-'}{abs(m) // 60:02d}:{abs(m) % 60:02d}"
 
 
 def dt(ts: int | None, fmt: str = "%d.%m %H:%M") -> str:
@@ -131,6 +140,11 @@ def event_text(kind: str, detail: str | None) -> str:
         return f"{name}: {d.get('channel')} → {d.get('to')}"
     if kind in ("admin_add", "admin_delete", "admin_disable", "admin_enable", "admin_rekey"):
         return f"{name}: {d.get('name')} ({d.get('username')})"
+    if kind in ("group_created", "group_deleted"):
+        return f"{name}: «{d.get('group')}»" + (f" ⊂ «{d['parent']}»" if d.get("parent") else "") + \
+            (" + " + ", ".join(d["subgroups"]) if d.get("subgroups") else "")
+    if kind == "group_moved":
+        return f"{name}: «{d.get('group')}» → " + (f"«{d['parent']}»" if d.get("parent") else t("top level"))
     if kind in ("peer_renamed", "admin_rename"):
         return f"{name}: «{d.get('from')}» → «{d.get('to')}»"
     if kind == "month_archived":
@@ -169,8 +183,8 @@ def event_text(kind: str, detail: str | None) -> str:
     return name
 
 
-SECOND_LEVEL = {"co.uk", "com.ru", "org.ru", "net.ru", "com.ua", "co.jp", "com.au", "com.br", "com.tr", "msk.ru", "spb.ru",
-                "co.kr", "com.cn", "gov.ru", "com.kz", "co.il", "github.io", "cloudfront.net", "amazonaws.com", "appspot.com"}
+SECOND_LEVEL = {"co.uk", "com.ua", "co.jp", "com.au", "com.br", "com.tr",
+                "co.kr", "com.cn", "com.kz", "co.il", "github.io", "cloudfront.net", "amazonaws.com", "appspot.com"}
 
 
 def base_domain(name: str) -> str:
@@ -184,5 +198,5 @@ def base_domain(name: str) -> str:
 
 def register(env) -> None:
     env.filters.update(size=size, dt=dt, ago=ago, duration=duration, flag=flag, base_domain=base_domain)
-    env.globals.update(event_text=event_text, status_name=status_name, STATUS_KEYS=STATUS_KEYS, _=t, N_=N_, VERSION=__version__, ROLE_NAMES=ROLE_NAMES, WEEKDAYS=WEEKDAYS, GEO_DATE=lambda: None, PERIOD_NAMES=PERIOD_NAMES, ACTION_NAMES=ACTION_NAMES,
+    env.globals.update(TZ_LABEL=tz_label, event_text=event_text, status_name=status_name, STATUS_KEYS=STATUS_KEYS, _=t, N_=N_, VERSION=__version__, ROLE_NAMES=ROLE_NAMES, WEEKDAYS=WEEKDAYS, GEO_DATE=lambda: None, PERIOD_NAMES=PERIOD_NAMES, ACTION_NAMES=ACTION_NAMES,
                        languages=i18n.languages)

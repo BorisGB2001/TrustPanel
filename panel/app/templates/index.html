@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+{% if crumbs %}<div class="crumbs-row">{% include "crumbs.html" %}{% if subgroups %}<nav class="crumbs subs" aria-label="{{ _("Subgroups") }}"><span class="muted">{{ _("Subgroups") }}:</span>{% for g in subgroups %}<a href="/?group={{ g.id }}">{{ g.name }}</a>{% endfor %}</nav>{% endif %}</div>{% endif %}
 <section class="kpis">
   <div class="card kpi"><div class="muted">{{ _("Online") }}</div><b>{{ online }}</b><span class="muted"> {{ _("of {n}", n=clients|length) }}</span></div>
   <div class="card kpi"><div class="muted">{{ _("Downloaded, 24 h") }}</div><b>{{ tx24|size }}</b></div>
@@ -21,10 +22,17 @@
 </section>
 
 <section class="grid2">
-  <div class="card"><h1>{{ _("Top 10 downloads today") }}</h1>{{ top_today|safe }}</div>
-  <div class="card"><div class="head"><h1>{{ _("Top 10 downloads this month ({month})", month=month) }}</h1><a href="/archive">{{ _("archive") }} →</a></div>{{ top_month|safe }}
-    <p class="muted small">{{ _("A month starts on the 1st at 00:00 Moscow time; totals of past months are in the archive.") }}</p></div>
+  <div class="card"><h1>{{ _("Traffic today — top 10") }}</h1>{{ top_today|safe }}</div>
+  <div class="card"><div class="head"><h1>{{ _("Traffic this month ({month}) — top 10", month=month) }}</h1><a href="/archive">{{ _("archive") }} →</a></div>{{ top_month|safe }}
+    <p class="muted small">{{ _("A month starts on the 1st at 00:00 panel time ({tz}); totals of past months are in the archive.", tz=TZ_LABEL()) }}</p></div>
 </section>
+
+{% if groups_bars %}
+<section class="grid2">
+  <div class="card"><div class="head"><h1>{{ _("Traffic today by group") }}</h1><a href="/groups">{{ _("groups") }} →</a></div>{{ groups_bars[0]|safe }}</div>
+  <div class="card"><h1>{{ _("Traffic this month ({month}) by group", month=month) }}</h1>{{ groups_bars[1]|safe }}</div>
+</section>
+{% endif %}
 
 <section class="card">
   <div class="head">
@@ -43,7 +51,7 @@
         {% if group_list or admin.role != "super" %}
         <label>{{ _("Group") }} <select name="group_id"{% if admin.role != "super" %} required{% endif %}>
           {% if admin.role == "super" %}<option value="0">{{ _("no group") }}</option>{% endif %}
-          {% for g in group_list %}<option value="{{ g.id }}"{% if group == g.id|string %} selected{% endif %}>{{ g.name }}</option>{% endfor %}
+          {% for g in group_list %}<option value="{{ g.id }}"{% if group == g.id|string %} selected{% endif %}>{{ g.label }}</option>{% endfor %}
         </select></label>
         {% endif %}
         <button type="submit">{{ _("Add") }}</button>

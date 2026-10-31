@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.1.0 — 2026-11-01
+
+Groups and traffic from AWG Panel 1.9.1–1.13.0.
+
+- Overview: "Traffic today / this month — top 10" ranked by total traffic, stacked bars (downloaded / uploaded); hovering
+  a client shows its traffic and chart by hour or by day. The monthly archive uses the same bars.
+- Traffic by group today and this month on the overview and the Groups page, with a chart on hover.
+- Subgroups: a group can be placed inside another one (any depth). The Groups page shows a tree; clients, online,
+  traffic and quotas of a group include its subgroups. The group filter includes subgroups. A group administrator
+  sees the subgroups of their groups and can create, rename, move and delete them.
+- Groups page: edit and delete icons in each row. Deleting a group asks about its subgroups (move to the parent or
+  delete) and its clients (keep them without a group or delete them, typing the group name). Clients deleted with a
+  group are removed from `credentials.toml` in one endpoint restart.
+- Breadcrumbs with the group path on the client card, the config page and the filtered overview.
+- Time zone captions show the panel's offset (for example "panel time (UTC+01:00)"); the default `TZ` is UTC.
+- Database schema 2 (`groups.parent_id`), applied automatically.
+
 ## 1.0.1 — 2026-10-30
 
 - Daily report image: the left margin follows the widest axis label (labels like "757.3 MiB" were cut off); in the
