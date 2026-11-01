@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.0 — 2026-11-01
+
+- Server page: "Client path to the internet". The server address and the address clients exit from may differ, and
+  with split routing there are several exits. The panel runs traceroute from the host network (TrustTunnel's outgoing connections use the host routes) to test
+  hosts and to "what is my IP" services (Yandex, ipinfo.io, Cloudflare, ipify), merges the routes into a tree and lists
+  the exit addresses with what each service reports. "details" on any address shows DB-IP, ipinfo.io Lite and Yandex
+  (IP, ASN, VPN flag) data. Settings: test hosts, address names (`IP = name`) and an optional ipinfo.io API key
+  (stored encrypted). The measurement runs on demand and when the page is opened with a result older than 6 hours.
+- Monthly archive: years with month tiles › year › month, breadcrumbs "All clients › Archive › year › month" and
+  previous/next month links. A month is split into tiles: totals, top 10 and groups side by side (bars at the same
+  scale as on the overview), and the client table.
+- The image includes `curl`.
+- Archive table: the client login instead of an empty IP column.
+
 ## 1.1.0 — 2026-11-01
 
 Groups and traffic from AWG Panel 1.9.1–1.13.0.

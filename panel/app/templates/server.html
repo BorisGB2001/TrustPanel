@@ -24,6 +24,47 @@
   </table>
 </section>
 
+{% macro iplink(ip) %}<code>{{ ip }}</code>{% if labels.get(ip) %} <b>{{ labels[ip] }}</b>{% endif %}
+  <button type="button" class="link ipcheck" data-ip="{{ ip }}">{{ _("details") }}</button><div class="ipinfo small" hidden></div>{% endmacro %}
+{% macro branch(nodes) %}<ul class="egress-tree">{% for n in nodes %}<li>
+  <span class="muted small">{{ n.ttl }}.</span> {% if n.ip %}{{ iplink(n.ip) }} <span class="muted small">{{ "%.1f"|format(n.rtt) }} ms</span>{% else %}<span class="muted">* {{ _("no reply") }}</span>{% endif %}
+  {% for l in n.leaves %}<div class="egress-leaf">→ <b>{{ l.host }}</b>{% if l.ip and l.ip != l.host %} <span class="muted small">{{ l.ip }}</span>{% endif %}
+    {% if l.exit and l.exit.ip %} · {{ _("{service} sees the client from", service=l.service) }} {{ iplink(l.exit.ip) }}{% endif %}
+    {% if l.error %} <span class="error small">{{ l.error }}</span>{% endif %}</div>{% endfor %}
+  {% if n.children %}{{ branch(n.children) }}{% endif %}</li>{% endfor %}</ul>{% endmacro %}
+<section class="card" id="egress" data-running="{{ 1 if egress_running else '' }}"
+  data-labels='{{ {"loading": _("loading…"), "private": _("private address (not routed on the internet)"), "nokey": _("no ipinfo.io API key in the settings below"), "yandex_na": _("Yandex reports only the address clients reach Yandex from; this is not it")}|tojson|forceescape }}'>
+  <h1>{{ _("Client path to the internet") }}</h1>
+  <p class="muted small">{{ _("The server address and the address clients exit to the internet from may differ; with split routing there are several exits, so different services see clients from different addresses. The path is measured from the clients' network context (traceroute to the test hosts and to “what is my IP” services).") }}</p>
+  <form method="post" action="/server/egress/run" class="row-form"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <button type="submit" class="secondary"{% if egress_running %} disabled{% endif %}>{{ _("Measuring…") if egress_running else _("Measure again") }}</button>
+    {% if egress %}<span class="muted small">{{ _("measured {when}, took {sec} s", when=egress.ts|int|ago(now), sec=egress.duration) }}</span>{% endif %}</form>
+  {% if egress %}
+  {% for e in egress.errors %}<div class="error small">{{ e }}</div>{% endfor %}
+  <h2>{{ _("Exit addresses") }}</h2>
+  <table class="tbl">
+    {% for e in egress.exits %}<tr><td>{{ iplink(e.ip) }}</td>
+      <td class="small">{% for svc, d in e.seen_by.items() %}<div><b>{{ svc }}</b>{% for k, v in d.items() if k != "ip" and v is not none %} · {{ k }}: {{ v }}{% endfor %}</div>{% endfor %}</td></tr>
+    {% else %}<tr><td class="muted">{{ _("none") }}</td></tr>{% endfor %}
+  </table>
+  <h2>{{ _("Routes") }}</h2>
+  {{ branch(egress.tree) }}
+  {% elif egress_running %}<p class="muted">{{ _("Measuring, it takes up to a minute…") }}</p>{% endif %}
+
+  <details id="egress-settings"><summary class="small">{{ _("Settings") }}</summary>
+  <form method="post" action="/server/egress/settings"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>{{ _("Test hosts (domains or IPv4, space or new line separated)") }}
+      <textarea name="targets" rows="3">{{ targets|join("\n") }}</textarea></label>
+    <label>{{ _("Address names, one per line: IP = name (e.g. 10.0.0.2 = second server)") }}
+      <textarea name="labels" rows="4">{% for ip, name in labels.items() %}{{ ip }} = {{ name }}
+{% endfor %}</textarea></label>
+    <label>{{ _("ipinfo.io API key") }} <span class="muted small">{{ _("(set; leave empty to keep)") if ipinfo_set else _("(optional: with a key the panel shows ipinfo.io data for every address)") }}</span>
+      <input name="token" type="password" autocomplete="off"></label>
+    {% if ipinfo_set %}<label class="small"><input type="checkbox" name="clear_token" value="1"> {{ _("remove the key") }}</label>{% endif %}
+    <button type="submit">{{ _("Save") }}</button>
+  </form></details>
+</section>
+
 <section class="card">
   <h1>TrustTunnel</h1>
   <p class="muted small">{{ info.version or "" }}{% if info.state %} · {{ info.state }}{% endif %}</p>

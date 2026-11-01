@@ -38,7 +38,7 @@ EVENT_NAMES = {
     "group_member": N_("moved to a group"), "group_moved": N_("group moved"), "acct_groups": N_("administrator groups changed"),
     "acct_telegram": N_("administrator connected Telegram"),
     "alert_quota": N_("traffic quota"), "quota_set": N_("quota changed"),
-    "contacts_set": N_("contacts changed"), "backup_sent": N_("backup sent"), "ip_allow_add": N_("panel access allowed from"),
+    "contacts_set": N_("contacts changed"), "backup_sent": N_("backup sent"), "egress_settings": N_("egress check settings changed"), "ip_allow_add": N_("panel access allowed from"),
     "ip_allow_remove": N_("panel access removed for"), "ip_allow_clear": N_("panel IP restriction removed"), "backup_restored": N_("restored from a backup"), "alert_backup": N_("backup failed"), "admin_rekey": N_("new password issued"), "config_sent": N_("config sent"), "config_link_issued": N_("bot link for the config created"),
     "client_view": N_("client portal opened"), "contact_telegram": N_("Telegram connected"), "contact_email": N_("e-mail confirmed"),
 }

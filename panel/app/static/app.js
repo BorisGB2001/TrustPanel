@@ -110,3 +110,32 @@ document.querySelectorAll("select[data-autosubmit]").forEach((s) => s.addEventLi
     a.addEventListener("mouseleave", () => { tip.hidden = true; });
   });
 })();
+
+// Страница «Сервер», путь клиентов в интернет: сведения об адресе по кнопке, автообновление, пока идёт замер.
+(function () {
+  const box = document.getElementById("egress");
+  if (!box) return;
+  if (box.dataset.running) setTimeout(() => location.reload(), 5000);
+  const L = JSON.parse(box.dataset.labels);
+  const line = (name, text) => { const d = document.createElement("div"); const b = document.createElement("b"); b.textContent = name + ": "; d.append(b, text); return d; };
+  const fields = (o) => Object.entries(o || {}).filter(([k, v]) => k !== "ip" && v !== null && v !== "").map(([k, v]) => `${k}: ${v}`).join(" · ");
+  box.addEventListener("click", async (ev) => {
+    const btn = ev.target.closest(".ipcheck");
+    if (!btn) return;
+    const out = btn.nextElementSibling;
+    if (!out.hidden) { out.hidden = true; return; }
+    out.hidden = false;
+    out.textContent = L.loading;
+    try {
+      const r = await fetch(`/server/ip/${encodeURIComponent(btn.dataset.ip)}`, { headers: { Accept: "application/json" } });
+      const d = await r.json();
+      out.textContent = "";
+      if (d.private) { out.textContent = L.private; return; }
+      out.append(line("DB-IP", fields(d.dbip) || "—"));
+      out.append(line("ipinfo.io", d.ipinfo && d.ipinfo.error === "no key" ? L.nokey : (d.ipinfo && d.ipinfo.error) || fields(d.ipinfo) || "—"));
+      out.append(line("Yandex", d.yandex ? fields(d.yandex) : L.yandex_na));
+    } catch (e) {
+      out.textContent = String(e);
+    }
+  });
+})();

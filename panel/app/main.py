@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import csv
 import io
+import ipaddress
+import json
 import logging
 import os
 import re
@@ -20,7 +22,7 @@ from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import __version__, admins, auth, backup, charts, groups, ipallow, quotas, clientconf, db, fmt, i18n, maintenance, monthly, notify, portal, report
+from . import __version__, admins, auth, backup, charts, egress, groups, ipallow, quotas, clientconf, db, fmt, i18n, maintenance, monthly, notify, portal, report
 from .fmt import N_
 from .i18n import t
 from .ttctl import TT, TTUnavailable
@@ -50,6 +52,9 @@ async def lifespan(app: FastAPI):
     app.state.stop = threading.Event()
     app.state.geo = Geo(settings.data_dir / "geo")
     templates.env.globals["GEO_DATE"] = app.state.geo.built      # дата гео-базы в подвале
+    # TrustTunnel — процесс хоста, его исходящие соединения идут по маршрутам хоста: путь меряется прямо из сети хоста
+    app.state.egress = egress.Egress(lambda a: a)
+    load_egress_settings(app.state.db, app.state.egress)
     app.state.poller = app.state.alerts = None
     app.state.notifier = None
     app.state.backups = None
@@ -1230,31 +1235,135 @@ def admins_delete(request: Request, admin_id: int, csrf: str = Form("")):
 @app.get("/server", response_class=HTMLResponse)
 def server_page(request: Request):
     require_super(request)
-    return render(request, "server.html", info=server_info(request), now=int(time.time()))
+    eg = request.app.state.egress
+    if os.environ.get("PANEL_COLLECTORS", "1") == "1":
+        eg.ensure_fresh()
+    labels = load_egress_settings(request.app.state.db, eg)
+    return render(request, "server.html", info=server_info(request), now=int(time.time()), egress=eg.result,
+                  egress_running=eg.running, labels=labels, targets=eg.targets, ipinfo_set=bool(eg.token))
+
+
+# ---- путь и адреса выхода ----
+
+def load_egress_settings(conn, eg: egress.Egress) -> dict:
+    """Настройки замера из state: тестовые узлы, подписи адресов, ключ ipinfo.io (хранится зашифрованным)."""
+    targets = db.get_state(conn, "egress_targets")
+    eg.targets = targets.split() if targets else list(egress.DEFAULT_TARGETS)
+    enc = db.get_state(conn, "ipinfo_token")
+    try:
+        eg.token = load_fernet(settings).decrypt(enc.encode()).decode() if enc else ""
+    except Exception:  # noqa: BLE001 — сменился ключ шифрования: ключ ipinfo нужно ввести заново
+        eg.token = ""
+    return json.loads(db.get_state(conn, "egress_labels") or "{}")
+
+
+@app.post("/server/egress/run")
+def egress_run(request: Request, csrf: str = Form("")):
+    require_super(request)
+    check_csrf(request, csrf)
+    if not request.app.state.egress.start():
+        flash(request, t("The measurement is already running."), "error")
+    return RedirectResponse("/server#egress", status_code=303)
+
+
+@app.post("/server/egress/settings")
+def egress_settings(request: Request, targets: str = Form(""), labels: str = Form(""), token: str = Form(""),
+                    clear_token: str = Form(""), csrf: str = Form("")):
+    require_super(request)
+    check_csrf(request, csrf)
+    conn = request.app.state.db
+    hosts = [h.strip().lower() for h in re.split(r"[\s,]+", targets) if h.strip()]
+    bad = [h for h in hosts if not re.fullmatch(r"[a-z0-9.-]{1,253}", h)]
+    if bad or len(hosts) > 20:
+        flash(request, t("Test hosts: up to 20 domain names or IPv4 addresses. Invalid: {bad}", bad=", ".join(bad[:5])), "error")
+        return RedirectResponse("/server#egress-settings", status_code=303)
+    names = {}
+    for line in labels.splitlines():
+        ip, _, name = line.partition("=")
+        try:
+            names[str(ipaddress.ip_address(ip.strip()))] = name.strip()[:64]
+        except ValueError:
+            continue
+    db.set_state(conn, "egress_targets", " ".join(hosts) or " ".join(egress.DEFAULT_TARGETS))
+    db.set_state(conn, "egress_labels", json.dumps({k: v for k, v in names.items() if v}, ensure_ascii=False))
+    if clear_token == "1":
+        db.set_state(conn, "ipinfo_token", "")
+    elif token.strip():
+        db.set_state(conn, "ipinfo_token", load_fernet(settings).encrypt(token.strip().encode()).decode())
+    conn.commit()
+    load_egress_settings(conn, request.app.state.egress)
+    db.event(conn, "egress_settings", detail={"targets": hosts, "ipinfo": bool(request.app.state.egress.token)},
+                 actor=current_user(request), actor_ip=client_ip(request))
+    conn.commit()
+    flash(request, t("Settings saved."))
+    return RedirectResponse("/server#egress", status_code=303)
+
+
+@app.get("/server/ip/{ip}")
+def egress_ip(request: Request, ip: str):
+    """Что известно об адресе: DB-IP (локально), ipinfo.io (если задан ключ), Яндекс (если это выход на Яндекс)."""
+    require_super(request)
+    try:
+        ip = str(ipaddress.ip_address(ip))
+    except ValueError:
+        raise HTTPException(400, "bad ip") from None
+    eg = request.app.state.egress
+    private = not ipaddress.ip_address(ip).is_global
+    return JSONResponse({"ip": ip, "private": private,
+                         "dbip": None if private else request.app.state.geo.lookup(ip),
+                         "ipinfo": None if private else eg.ipinfo(ip),
+                         "yandex": eg.yandex(ip)})
+
+
+MONTH_NAMES = (N_("January"), N_("February"), N_("March"), N_("April"), N_("May"), N_("June"), N_("July"),
+               N_("August"), N_("September"), N_("October"), N_("November"), N_("December"))
+
+
+def month_label(ym: str) -> str:
+    return f"{t(MONTH_NAMES[int(ym[5:7]) - 1])} {ym[:4]}"
 
 
 @app.get("/archive", response_class=HTMLResponse)
-def archive_page(request: Request, month: str = "", group: str = ""):
+def archive_page(request: Request, month: str = "", year: str = "", group: str = ""):
+    """Архив: все годы плитками месяцев › год › месяц (итоги, топ-10, группы, таблица клиентов)."""
     conn = request.app.state.db
-    months = [r[0] for r in conn.execute("SELECT DISTINCT month FROM monthly_archive ORDER BY month DESC")]
-    month = month if month in months else (months[0] if months else "")
     pw, pa = db.peer_filter(visible_peers(request, group))
-    rows = conn.execute(f"SELECT * FROM monthly_archive WHERE month = ?{pw} ORDER BY tx DESC", (month, *pa)).fetchall()
-    chart = charts.traffic_bars([{"name": r["name"] or r["username"], "down": r["tx"], "up": r["rx"], "href": f"/peer/{r['peer_id']}"}
-                                 for r in sorted(rows, key=lambda r: -(r["tx"] + r["rx"]))[:10] if r["tx"] or r["rx"]])
-    gname = {g["id"]: g["name"] for g in group_choices(request)}
-    member = {r[0]: r[1] for r in conn.execute("SELECT id, group_id FROM peers")}
-    by_group: dict[str, list[int]] = {}
-    for r in rows:
-        key = gname.get(member.get(r["peer_id"]), t("no group"))
-        a = by_group.setdefault(key, [0, 0, 0])
-        a[0] += r["tx"]
-        a[1] += r["rx"]
-        a[2] += 1
-    group_totals = sorted(by_group.items(), key=lambda x: -x[1][0])
-    return render(request, "archive.html", months=months, month=month, rows=rows, chart=chart,
-                  group=group, group_list=group_choices(request), group_totals=group_totals,
-                  total=(sum(r["tx"] for r in rows), sum(r["rx"] for r in rows)))
+    tiles = [dict(r) | {"label": month_label(r["month"])} for r in conn.execute(
+        f"SELECT month, SUM(tx) tx, SUM(rx) rx, COUNT(*) clients FROM monthly_archive WHERE 1{pw} GROUP BY month ORDER BY month DESC", pa)]
+    months = [x["month"] for x in tiles]
+    gq = f"&group={group}" if group else ""
+    trail = [(t("Archive"), "/archive" + (f"?group={group}" if group else ""))]
+    ctx = dict(group=group, group_list=group_choices(request), tiles=tiles, gq=gq)
+    if month in months:
+        yr = month[:4]
+        trail += [(yr, f"/archive?year={yr}{gq}"), (t(MONTH_NAMES[int(month[5:7]) - 1]), None)]
+        rows = conn.execute(f"SELECT * FROM monthly_archive WHERE month = ?{pw} ORDER BY tx DESC", (month, *pa)).fetchall()
+        chart = charts.traffic_bars([{"name": r["name"] or r["username"], "down": r["tx"], "up": r["rx"], "href": f"/peer/{r['peer_id']}"}
+                                     for r in sorted(rows, key=lambda r: -(r["tx"] + r["rx"]))[:10] if r["tx"] or r["rx"]])
+        gname = {g["id"]: g["name"] for g in group_choices(request)}
+        member = {r[0]: r[1] for r in conn.execute("SELECT id, group_id FROM peers")}
+        by_group: dict[int | None, list[int]] = {}
+        for r in rows:
+            gid = member.get(r["peer_id"])
+            a = by_group.setdefault(gid if gid in gname else None, [0, 0, 0])
+            a[0] += r["tx"]
+            a[1] += r["rx"]
+            a[2] += 1
+        group_totals = sorted(((gname.get(k, t("no group")), v) for k, v in by_group.items()), key=lambda x: -x[1][0])
+        group_chart = charts.traffic_bars(
+            [{"name": gname.get(k, t("no group")), "down": v[0], "up": v[1],
+              "href": f"/archive?month={month}&group={k if k is not None else 0}"}
+             for k, v in sorted(by_group.items(), key=lambda x: -(x[1][0] + x[1][1])) if v[0] or v[1]], hint=t("hover over a group for details"))
+        i = months.index(month)
+        ctx.update(month=month, month_title=month_label(month), rows=rows, chart=chart, group_chart=group_chart,
+                   group_totals=group_totals, prev=months[i + 1] if i + 1 < len(months) else None, next=months[i - 1] if i else None,
+                   total=(sum(r["tx"] for r in rows), sum(r["rx"] for r in rows), sum(r["sessions"] for r in rows)))
+    elif year and any(m.startswith(year) for m in months):
+        trail += [(year, None)]
+        ctx.update(year=year, tiles=[x for x in tiles if x["month"].startswith(year)])
+    ctx["by_year"] = [(y, [x for x in ctx["tiles"] if x["month"].startswith(y)])
+                      for y in sorted({x["month"][:4] for x in ctx["tiles"]}, reverse=True)]
+    return render(request, "archive.html", crumbs=crumbs(request, None, *trail), **ctx)
 
 
 def csv_cell(v):

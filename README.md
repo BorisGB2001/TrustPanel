@@ -24,6 +24,7 @@ TrustPanel is a port of [AWG Panel](https://github.com/BorisGB2001/awg-panel) (t
 - **Groups and administrators**: groups can be nested (head organisation → branches → departments, any depth), with breadcrumbs on every page; a group's clients, traffic and quota include its subgroups. Super administrators see everything; a group administrator sees and manages only the clients of their groups and their subgroups, and can create, move and delete subgroups. Traffic quotas per group or client per day / month with an alert or automatic disabling.
 - **Client portal** (`/me`, personal link): own traffic, sessions, quota, optional config download, daily report image and notifications in Telegram or e-mail.
 - **Backups** to Telegram / e-mail on a schedule, encrypted with your password (AES-256-GCM, scrypt): the whole portal (DB, `.env`, `data.key`, TrustTunnel settings) or, for a group administrator, the configs of their groups. Restore on the same server from the Backups page or on a new one with `restore.sh`.
+- **Client path to the internet** (Server page): traceroute to test hosts and to "what is my IP" services from the clients' network context, routes merged into a tree and the list of exit addresses — with split routing clients exit from several addresses. Each address shows DB-IP, ipinfo.io (optional API key in the settings, stored encrypted) and Yandex (IP, ASN, VPN flag) data.
 - **Access by IP** to the administrator part, interface in English and Russian, light and dark theme.
 
 ## How it works

@@ -226,3 +226,15 @@ footer svg { display: block; flex: none; }
 .crumbs [aria-current] { color: var(--muted); }
 .crumbs-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 24px; }
 .crumbs.subs { gap: 4px 12px; }
+.egress-tree { list-style: none; padding-left: 18px; margin: 4px 0; border-left: 1px dashed var(--border); }
+#egress > .egress-tree { padding-left: 0; border-left: 0; }
+.egress-tree li { margin: 4px 0; }
+.egress-leaf { margin: 2px 0 2px 18px; }
+.ipinfo { margin: 4px 0 6px 18px; padding: 6px 10px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); }
+.archive-head { padding: 14px 20px; }
+.archive-head .head > h1 { margin: 0; }
+.archive-year { margin: 8px 0 10px; }
+.archive-tiles a.card { color: inherit; text-decoration: none; }
+.archive-tiles a.card:hover { border-color: var(--accent); }
+.kpis.archive-tiles { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+.kpis.archive-tiles .small { white-space: normal; }

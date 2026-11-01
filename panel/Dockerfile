@@ -2,7 +2,8 @@
 FROM python:3.13-alpine
 
 # nsenter (util-linux-misc) — systemctl in the host namespaces; font-dejavu — non-Latin text in the daily report image
-RUN apk add --no-cache util-linux-misc tzdata font-dejavu
+# boris.gb 2026-11-01 00:34 - curl: "what is my IP" requests for the Server tab (client path to the internet)
+RUN apk add --no-cache util-linux-misc tzdata font-dejavu curl
 
 WORKDIR /srv
 COPY requirements.txt .

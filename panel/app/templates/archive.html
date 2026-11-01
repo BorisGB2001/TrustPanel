@@ -1,31 +1,49 @@
 {% extends "base.html" %}
-{% block title %}{{ _("Archive") }} — {{ _("TrustPanel") }}{% endblock %}
+{% block title %}{{ month_title or year or _("Archive") }} — {{ _("TrustPanel") }}{% endblock %}
+{% macro month_tiles(items) %}<section class="kpis compact archive-tiles">{% for m in items %}
+  <a class="card kpi" href="/archive?month={{ m.month }}{{ gq }}"><div class="muted">{{ m.label }}</div><b>{{ (m.tx + m.rx)|size }}</b>
+    <div class="muted small">↓{{ m.tx|size }} ↑{{ m.rx|size }} · {{ _("clients: {n}", n=m.clients) }}</div></a>{% endfor %}</section>{% endmacro %}
 {% block content %}
+<div class="crumbs-row">{% include "crumbs.html" %}{% include "group_filter.html" %}</div>
+{% if not tiles %}
+<section class="card"><h1>{{ _("Monthly archive") }}</h1>
+  <p class="muted">{{ _("The archive is empty: the first month gets here on the 1st at 00:00 panel time ({tz}).", tz=TZ_LABEL()) }}</p></section>
+{% elif month %}
+<section class="card archive-head"><div class="head">
+  <h1>{{ month_title }}</h1>
+  <nav class="tabs">{% if prev %}<a href="/archive?month={{ prev }}{{ gq }}">← {{ prev }}</a>{% endif %}{% if next %}<a href="/archive?month={{ next }}{{ gq }}">{{ next }} →</a>{% endif %}</nav>
+  <a class="btn" href="/archive/{{ month }}.csv{% if group %}?group={{ group }}{% endif %}">CSV</a>
+</div></section>
+<section class="kpis compact">
+  <div class="card kpi"><div class="muted">{{ _("Downloaded") }}</div><b>{{ total[0]|size }}</b></div>
+  <div class="card kpi"><div class="muted">{{ _("Uploaded") }}</div><b>{{ total[1]|size }}</b></div>
+  <div class="card kpi"><div class="muted">{{ _("Clients") }}</div><b>{{ rows|length }}</b></div>
+  <div class="card kpi"><div class="muted">{{ _("Sessions") }}</div><b>{{ total[2] }}</b></div>
+</section>
+<section class="grid2">
+  <div class="card"><h1>{{ _("Top 10 by traffic") }}</h1>{{ chart|safe }}</div>
+  <div class="card"><h1>{{ _("By group") }}</h1>{{ group_chart|safe }}
+    {% if group_totals %}<table class="tbl compact-tbl">
+      <thead><tr><th>{{ _("Group") }}</th><th class="num">{{ _("Clients") }}</th><th class="num">{{ _("Downloaded") }}</th><th class="num">{{ _("Uploaded") }}</th></tr></thead>
+      {% for name, v in group_totals %}<tr><td>{{ name }}</td><td class="num">{{ v[2] }}</td><td class="num">{{ v[0]|size }}</td><td class="num">{{ v[1]|size }}</td></tr>{% endfor %}
+    </table>{% endif %}</div>
+</section>
 <section class="card">
-  <div class="head">
-    <h1>{{ _("Monthly archive") }}</h1>
-    {% include "group_filter.html" %}
-    {% if months %}<nav class="tabs">{% for m in months %}<a href="?month={{ m }}" class="{{ 'on' if m == month }}">{{ m }}</a>{% endfor %}</nav>{% endif %}
-  </div>
-  {% if not months %}<p class="muted">{{ _("The archive is empty: the first month gets here on the 1st at 00:00 panel time ({tz}).", tz=TZ_LABEL()) }}</p>{% else %}
-  <p>{{ _("In {month}: downloaded {down}, uploaded {up}.", month=month, down=total[0]|size, up=total[1]|size) }} <a class="btn" href="/archive/{{ month }}.csv{% if group %}?group={{ group }}{% endif %}">CSV</a></p>
-  {% if group_totals|length > 1 %}
-  <h2>{{ _("By group") }}</h2>
-  <table class="tbl compact-tbl">
-    <thead><tr><th>{{ _("Group") }}</th><th class="num">{{ _("Clients") }}</th><th class="num">{{ _("Downloaded") }}</th><th class="num">{{ _("Uploaded") }}</th></tr></thead>
-    {% for name, v in group_totals %}<tr><td>{{ name }}</td><td class="num">{{ v[2] }}</td><td class="num">{{ v[0]|size }}</td><td class="num">{{ v[1]|size }}</td></tr>{% endfor %}
-  </table>
-  {% endif %}
-  <h2>{{ _("Top 10 by traffic") }}</h2>
-  {{ chart|safe }}
+  <h1>{{ _("Clients") }}</h1>
   <div class="scroll">
   <table class="tbl">
-    <thead><tr><th>{{ _("Client") }}</th><th>IP</th><th class="num">{{ _("Downloaded") }}</th><th class="num">{{ _("Uploaded") }}</th><th class="num">{{ _("Sessions") }}</th><th class="num">{{ _("Online") }}</th></tr></thead>
-    {% for r in rows %}<tr><td><a href="/peer/{{ r.peer_id }}">{{ r.name }}</a></td><td><code>{{ r.ip }}</code></td>
+    <thead><tr><th>{{ _("Client") }}</th><th>{{ _("Login") }}</th><th class="num">{{ _("Downloaded") }}</th><th class="num">{{ _("Uploaded") }}</th><th class="num">{{ _("Sessions") }}</th><th class="num">{{ _("Online") }}</th></tr></thead>
+    {% for r in rows %}<tr><td><a href="/peer/{{ r.peer_id }}">{{ r.name }}</a></td><td><code>{{ r.username }}</code></td>
       <td class="num">{{ r.tx|size }}</td><td class="num">{{ r.rx|size }}</td><td class="num">{{ r.sessions }}</td><td class="num">{{ r.online_sec|duration }}</td></tr>{% endfor %}
   </table>
   </div>
   <p class="muted small">{{ _("Totals are fixed on the 1st at 00:00 panel time ({tz}). Data starts when the panel started watching.", tz=TZ_LABEL()) }}</p>
-  {% endif %}
 </section>
+{% else %}
+{% for y, items in by_year %}
+<h2 class="archive-year">{% if year %}{{ y }}{% else %}<a href="/archive?year={{ y }}{{ gq }}">{{ y }}</a>{% endif %}</h2>
+{{ month_tiles(items) }}
+{% endfor %}
+<p class="muted small">{{ _("Totals are fixed on the 1st at 00:00 panel time ({tz}). Data starts when the panel started watching.", tz=TZ_LABEL()) }}</p>
+{% endif %}
 {% endblock %}
