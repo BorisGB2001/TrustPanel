@@ -648,5 +648,6 @@
   "October": "October",
   "November": "November",
   "December": "December",
-  "clients: {n}": "clients: {n}"
+  "clients: {n}": "clients: {n}",
+  "The sign-in page was out of date. Please enter your details again.": "The sign-in page was out of date. Please enter your details again."
 }

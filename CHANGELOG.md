@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1 — 2026-11-05
+
+- Sign-in: a stale login form (opened before a panel restart, signed in in another tab, "back") shows the sign-in page
+  again with a hint instead of `{"detail":"CSRF"}`; the TOTP setup page does the same. A foreign Origin is still refused.
+  From AWG Panel 1.14.2.
+
 ## 1.2.0 — 2026-11-01
 
 - Server page: "Client path to the internet". The server address and the address clients exit from may differ, and

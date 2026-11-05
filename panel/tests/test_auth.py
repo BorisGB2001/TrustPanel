@@ -81,8 +81,10 @@ def test_login_flow(client):
 
 def test_login_requires_csrf(client):
     client.get("/login")
-    r = client.post("/login", data={"username": "admin", "password": "x", "code": "1", "csrf": "forged"})
-    assert r.status_code == 403
+    r = client.post("/login", data={"username": "admin", "password": "x", "code": "1", "csrf": "forged"}, follow_redirects=False)
+    # старая форма: пароль не проверяется, сессии нет — свежая страница входа с подсказкой вместо JSON {"detail":"CSRF"}
+    assert r.status_code == 200 and "out of date" in r.text and 'name="csrf"' in r.text
+    assert client.get("/", follow_redirects=False).status_code == 303
 
 
 def test_healthz_local_only(client):
@@ -143,7 +145,7 @@ def test_every_admin_post_needs_csrf(client):
     """Все POST-действия админа отклоняют запрос без верного CSRF-токена (новый маршрут без проверки уронит тест)."""
     from app import main
     _login(client)
-    skip = {"/login", "/me/logout"}   # вход проверяет токен сам; выход из кабинета безопасен и без него
+    skip = {"/login", "/login/totp", "/me/logout"}   # вход проверяет токен сам; выход из кабинета безопасен и без него
     routes = [r.path for r in main.app.routes if "POST" in getattr(r, "methods", ()) and r.path not in skip]
     assert len(routes) >= 15
     for path in routes:

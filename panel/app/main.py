@@ -292,7 +292,16 @@ async def login_form(request: Request):
 @app.post("/login", response_class=HTMLResponse)
 async def login(request: Request, username: str = Form(""), password: str = Form(""), code: str = Form(""),
                 csrf: str = Form("")):
-    check_csrf(request, csrf)
+    try:
+        check_csrf(request, csrf)
+    except HTTPException as e:
+        if e.detail != "CSRF":             # чужой Origin — отказ как был
+            raise
+        # форма со старой страницы (открыта до перезапуска, вход в другой вкладке, «назад») — свежая форма, а не JSON
+        if current_admin(request):
+            return RedirectResponse("/", status_code=303)
+        return render(request, "login.html", problems=settings.problems(),
+                      error=t("The sign-in page was out of date. Please enter your details again."))
     ip = client_ip(request)
     conn = request.app.state.db
     wait = limiter.blocked(ip)
@@ -354,7 +363,12 @@ def totp_form(request: Request):
 
 @app.post("/login/totp", response_class=HTMLResponse)
 def totp_bind(request: Request, code: str = Form(""), csrf: str = Form("")):
-    check_csrf(request, csrf)
+    try:
+        check_csrf(request, csrf)
+    except HTTPException as e:
+        if e.detail != "CSRF":
+            raise
+        return RedirectResponse("/login/totp", status_code=303)
     ip = client_ip(request)
     tok, row, secret = enrollment(request)
     if not row or row["disabled"]:

@@ -648,5 +648,6 @@
   "October": "Октябрь",
   "November": "Ноябрь",
   "December": "Декабрь",
-  "clients: {n}": "клиентов: {n}"
+  "clients: {n}": "клиентов: {n}",
+  "The sign-in page was out of date. Please enter your details again.": "Страница входа устарела. Введите данные ещё раз."
 }
