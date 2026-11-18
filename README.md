@@ -8,7 +8,7 @@ TrustPanel is a port of [AWG Panel](https://github.com/BorisGB2001/awg-panel) (t
 
 | | |
 |---|---|
-| Address | `https://<server-ip>:15443` (port is `PANEL_PORT` in `.env`; certificate from Caddy's internal CA — **port 80 is not used**) |
+| Address | `https://<server-ip>:15443` (port is `PANEL_PORT` in `.env`; Let's Encrypt certificate for the server IP, renewed by Caddy) |
 | Install dir | `/opt/trust-panel` on the TrustTunnel server |
 | Containers | `trust-panel` (Python, FastAPI), `trust-panel-caddy` (HTTPS) |
 | Data | `/opt/trust-panel/data`: `panel.db` (SQLite), `backups/` (credentials.toml before every change, DB), `geo/` (DB-IP), `data.key` |
@@ -48,7 +48,7 @@ TrustPanel is a port of [AWG Panel](https://github.com/BorisGB2001/awg-panel) (t
   ```
 
 - In `hosts.toml` the main host must be a **hostname**, not an IP: the endpoint drops TLS connections without SNI, and an IP is not a valid SNI. Without a domain use a wildcard DNS name such as `203-0-113-10.sslip.io` (resolves to 203.0.113.10) with a self-signed certificate; the certificate is embedded in the exported configs.
-- A free TCP port for the panel (`PANEL_PORT`, default 15443) open in the firewall.
+- A free TCP port for the panel (`PANEL_PORT`, default 15443) and port 80/tcp for the Let's Encrypt check, open in the firewall (:80 is used only for the seconds of validation).
 
 ## Installation
 
@@ -57,10 +57,10 @@ TrustPanel is a port of [AWG Panel](https://github.com/BorisGB2001/awg-panel) (t
 cp .env.example .env.server         # fill PANEL_HOST, PUBLIC_HOST, SESSION_SECRET, DATA_KEY (commands are in the file)
 scp .env.server root@<server>:/opt/trust-panel/.env && ssh root@<server> chmod 600 /opt/trust-panel/.env
 ./deploy.sh root@<server>           # copies the code, builds the image, runs the tests, starts the panel
-ssh root@<server> 'cd /opt/trust-panel && ./init-admin.sh && docker compose up -d caddy && ufw allow 15443/tcp'
+ssh root@<server> 'cd /opt/trust-panel && ./init-admin.sh && docker compose up -d caddy && ufw allow 15443/tcp && ufw allow 80/tcp'
 ```
 
-`init-admin.sh` asks for the administrator password and shows a QR code for the authenticator app. Then open `https://<server-ip>:15443`. The browser warns about the certificate once: it is issued by Caddy's local CA. Compare the fingerprint (`openssl s_client -connect <server-ip>:15443 | openssl x509 -noout -fingerprint -sha256` on the server) or install the root `docker compose exec caddy cat /data/caddy/pki/authorities/local/root.crt` as trusted.
+`init-admin.sh` asks for the administrator password and shows a QR code for the authenticator app. Then open `https://<server-ip>:15443`. Caddy gets a Let's Encrypt certificate for the server IP (the `shortlived` profile, about 6 days) and renews it by itself. It is validated by http-01: Caddy listens on :80 only for those few seconds, so :80 can be shared with another Caddy that does the same (for example AWG Panel). Without port 80, replace the `tls { … }` block in `Caddyfile` with `tls internal`: the certificate then comes from Caddy's local CA and the browser warns once.
 
 ## Updating
 
@@ -92,7 +92,7 @@ The Administrators page (super administrators) limits the administrator part, in
 ## Known quirks
 
 - Any change of the client list restarts the endpoint (see "How it works").
-- The browser warns about the self-signed panel certificate until you trust Caddy's local CA.
+- The panel certificate is valid for about 6 days and is renewed automatically; port 80/tcp must stay open in the firewall for that.
 - Session times are as seen by the poller (every `POLL_INTERVAL` seconds), not exact connect moments.
 
 ## Development

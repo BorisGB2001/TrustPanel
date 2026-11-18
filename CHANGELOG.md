@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.2 — 2026-11-18
+
+- HTTPS: Let's Encrypt certificate for the server IP (`shortlived` profile, about 6 days) instead of Caddy's internal
+  CA — browsers trust the panel without a warning. Caddy renews it by itself through http-01: it listens on :80 only
+  for the seconds of validation, so :80 can be shared with another Caddy (AWG Panel) doing the same. Open 80/tcp in the
+  firewall. Without port 80, put `tls internal` back into `Caddyfile`.
+
 ## 1.2.1 — 2026-11-05
 
 - Sign-in: a stale login form (opened before a panel restart, signed in in another tab, "back") shows the sign-in page

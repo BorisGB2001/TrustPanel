@@ -33,7 +33,8 @@ services:
     image: caddy:2.11.7
     container_name: trust-panel-caddy
     restart: unless-stopped
-    # host net: Caddy listens only on PANEL_PORT (no port 80) and proxies to 127.0.0.1:PANEL_BIND_PORT
+    # host net: Caddy listens on PANEL_PORT (and on :80 only during certificate validation) and proxies to 127.0.0.1:PANEL_BIND_PORT
+    # boris.gb 2026-11-18 18:36 - :80 is opened briefly for the Let's Encrypt http-01 challenge
     network_mode: host
     env_file: .env
     volumes:
