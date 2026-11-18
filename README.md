@@ -47,7 +47,7 @@ TrustPanel is a port of [AWG Panel](https://github.com/BorisGB2001/awg-panel) (t
   per_client_metrics = true
   ```
 
-- In `hosts.toml` the main host must be a **hostname**, not an IP: the endpoint drops TLS connections without SNI, and an IP is not a valid SNI. Without a domain use a wildcard DNS name such as `203-0-113-10.sslip.io` (resolves to 203.0.113.10) with a self-signed certificate; the certificate is embedded in the exported configs.
+- In `hosts.toml` the main host must be a **hostname**, not an IP: the endpoint drops TLS connections without SNI, and an IP is not a valid SNI. Without a domain use a wildcard DNS name such as `203-0-113-10.sslip.io` (resolves to 203.0.113.10) — a Let's Encrypt certificate can be issued for it. Recommended: certbot (`certonly --standalone`, http-01 on :80) with a deploy hook that copies `fullchain.pem` / `privkey.pem` into the endpoint directory (it is mounted into the panel container — paths under `/etc/letsencrypt` are not) and sends `SIGHUP`: the endpoint reloads the certificate without dropping tunnels (see TrustTunnel's CERT_RENEWAL.md). A publicly trusted certificate is not embedded in the exported configs, so renewals do not break them; a self-signed one is embedded.
 - A free TCP port for the panel (`PANEL_PORT`, default 15443) and port 80/tcp for the Let's Encrypt check, open in the firewall (:80 is used only for the seconds of validation).
 
 ## Installation
