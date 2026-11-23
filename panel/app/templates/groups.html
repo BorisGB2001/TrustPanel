@@ -3,7 +3,7 @@
 {% block content %}
 <section class="card">
   <div class="head"><h1>{{ _("Groups") }}</h1>{% if rows %}<a class="btn" href="/groups.csv">CSV</a>{% endif %}</div>
-  <div class="scroll"><table class="tbl">
+  <div class="scroll"><table class="tbl" data-cols="groups-1">
     <thead><tr><th>{{ _("Group") }}</th><th class="num">{{ _("Clients") }}</th><th class="num">{{ _("online") }}</th>
       <th class="num">{{ _("Today") }} ↓/↑</th><th class="num">{{ _("This month") }} ↓/↑</th><th>{{ _("Quota") }}</th><th>{{ _("Administrators") }}</th><th></th></tr></thead>
     {% for g in rows %}
@@ -21,7 +21,7 @@
     </tr>
     {% else %}<tr><td class="muted">{{ _("No groups yet.") }}</td></tr>{% endfor %}
     {% if admin.role == "super" %}
-    <tr><td><a href="/?group=0" class="muted">{{ _("no group") }}</a></td><td class="num">{{ nogroup }}</td><td colspan="7" class="muted small">{{ _("Logins added to credentials.toml outside the panel get here; only super administrators see them.") }}</td></tr>
+    <tr><td><a href="/?group=0" class="muted">{{ _("no group") }}</a></td><td class="num">{{ nogroup }}</td><td colspan="6" class="muted small">{{ _("Logins added to credentials.toml outside the panel get here; only super administrators see them.") }}</td></tr>
     {% endif %}
   </table></div>
 </section>

@@ -174,6 +174,19 @@ def manageable_groups(request: Request) -> set[int] | None:
     return groups.admin_group_ids(conn, row["id"]) - groups.admin_direct_ids(conn, row["id"])
 
 
+def series_keys(start: int, now: int, daily: bool) -> list[int]:
+    """Метки шкалы графика от start до now — те же ключи, по которым раскладывается traffic_hour: начала суток
+    панели (шаг по календарю, а не по 86400 с — иначе при переводе часов день дублируется, а последний пропадает)
+    или часы UTC (у пояса со смещением в 30/45 минут полночь не совпадает с началом часа)."""
+    if not daily:
+        return list(range(start + -start % 3600, now + 1, 3600))
+    keys, k = [], fmt.day_start(start)
+    while k <= now:
+        keys.append(k)
+        k = fmt.day_start(k + 86400 + 7200)
+    return keys
+
+
 PEER_PATH = re.compile(r"^/peer/(\d+)(?:/|$)")
 
 
@@ -455,12 +468,7 @@ def index(request: Request, days: int = 1, group: str = ""):
             a = per[x["peer_id"]].setdefault(key, [0, 0])
             a[0] += x["tx"]
             a[1] += x["rx"]
-        step = 86400 if daily else 3600
-        keys = []
-        k = start
-        while k <= now:
-            keys.append(fmt.day_start(k) if daily else k)
-            k += step
+        keys = series_keys(start, now, daily)
         label = "%d" if daily else "%H"
         return charts.traffic_bars(
             [{"name": r["name"], "down": r["d"] or 0, "up": r["u"] or 0, "href": f"/peer/{r['id']}",
@@ -471,7 +479,9 @@ def index(request: Request, days: int = 1, group: str = ""):
                   groups_bars=(group_bars(conn, g_rows, now, False), group_bars(conn, g_rows, now, True)) if g_rows else None,
                   events=events, poll=poller.status if poller else None, now=now, days=days, peak=peak, alerts=alerts,
                   top_clients=top_clients, group=group, group_list=group_choices(request),
-                  crumbs=crumbs(request, int(group)) if group.isdigit() and group != "0" else None,
+                  # путь — только по группе, которую администратор видит: иначе по номеру узнавались бы чужие названия
+                  crumbs=crumbs(request, int(group)) if group.isdigit() and group != "0" and (
+                      allowed_groups(request) is None or int(group) in allowed_groups(request)) else None,
                   subgroups=[g for g in group_choices(request) if group.isdigit() and g["parent_id"] == int(group)],
                   traffic_chart=charts.bars(charts.traffic_series(conn, since, now, bucket, vp), fmt.TZ, label),
                   online_chart=charts.bars(online_series, fmt.TZ, label, bytes_axis=False, legend=(t("online"), "")))
@@ -902,10 +912,7 @@ def group_bars(conn, rows: list[dict], now: int, daily: bool) -> str:
             a = per[gid].setdefault(bucket(x["ts"]), [0, 0])
             a[0] += x["tx"]
             a[1] += x["rx"]
-    keys, k = [], start
-    while k <= now:
-        keys.append(bucket(k))
-        k += 86400 if daily else 3600
+    keys = series_keys(start, now, daily)
     label = "%d" if daily else "%H"
     return charts.traffic_bars(
         [{"name": g["path"], "down": g[d], "up": g[u], "href": f"/?group={g['id']}",
@@ -1354,15 +1361,25 @@ def archive_page(request: Request, month: str = "", year: str = "", group: str =
         rows = conn.execute(f"SELECT * FROM monthly_archive WHERE month = ?{pw} ORDER BY tx DESC", (month, *pa)).fetchall()
         chart = charts.traffic_bars([{"name": r["name"] or r["username"], "down": r["tx"], "up": r["rx"], "href": f"/peer/{r['peer_id']}"}
                                      for r in sorted(rows, key=lambda r: -(r["tx"] + r["rx"]))[:10] if r["tx"] or r["rx"]])
-        gname = {g["id"]: g["name"] for g in group_choices(request)}
+        # при фильтре по группе — только она и её подгруппы: группы выше показали бы лишь часть своего трафика
+        scope = groups.subtree(conn, {int(group)}) if group.isdigit() and group != "0" else None
+        gname = {g["id"]: g["path"] for g in group_choices(request) if scope is None or g["id"] in scope}
         member = {r[0]: r[1] for r in conn.execute("SELECT id, group_id FROM peers")}
+        parent = {g["id"]: g["parent_id"] for g in groups.all_groups(conn)}
         by_group: dict[int | None, list[int]] = {}
         for r in rows:
-            gid = member.get(r["peer_id"])
-            a = by_group.setdefault(gid if gid in gname else None, [0, 0, 0])
-            a[0] += r["tx"]
-            a[1] += r["rx"]
-            a[2] += 1
+            # как на странице «Группы»: трафик клиента входит в его группу и во все видимые группы над ней
+            own, gid, seen = [], member.get(r["peer_id"]), set()
+            while gid is not None and gid not in seen:
+                seen.add(gid)
+                if gid in gname:
+                    own.append(gid)
+                gid = parent.get(gid)
+            for key in own or [None]:
+                a = by_group.setdefault(key, [0, 0, 0])
+                a[0] += r["tx"]
+                a[1] += r["rx"]
+                a[2] += 1
         group_totals = sorted(((gname.get(k, t("no group")), v) for k, v in by_group.items()), key=lambda x: -x[1][0])
         group_chart = charts.traffic_bars(
             [{"name": gname.get(k, t("no group")), "down": v[0], "up": v[1],

@@ -7,7 +7,7 @@
 {% endif %}
 <section class="card">
   <h1>{{ _("Administrators") }}</h1>
-  <div class="scroll"><table class="tbl">
+  <div class="scroll"><table class="tbl" data-cols="admins-1">
     <thead><tr><th>{{ _("Username") }}</th><th>{{ _("Role") }}</th><th>{{ _("Groups") }}</th><th>{{ _("Authenticator") }}</th><th>{{ _("Last sign-in") }}</th><th>{{ _("Note") }}</th><th></th></tr></thead>
     {% for a in rows %}
     <tr{% if a.disabled %} class="off"{% endif %}>
@@ -48,7 +48,7 @@
   <h1>{{ _("Access by IP") }}</h1>
   <p class="muted small">{{ _("The panel (including the sign-in page) opens only from these addresses and subnets. The client portal stays open. Empty list — no restriction. Your current address: {ip}.", ip=my_ip) }}</p>
   {% if ip_rows %}
-  <table class="tbl compact-tbl">
+  <table class="tbl compact-tbl" data-cols="admins-2">
     {% for r in ip_rows %}<tr><td><code>{{ r.cidr }}</code>{% if r.note %} <span class="muted small">{{ r.note }}</span>{% endif %}</td>
       <td class="muted small nowrap">{{ r.created_at|dt }} · {{ r.actor or "" }}</td>
       <td class="nowrap"><form method="post" action="/admins/ip/{{ r.id }}/delete" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}">

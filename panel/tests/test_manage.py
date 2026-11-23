@@ -111,6 +111,17 @@ def test_delete_many_restarts_once(env):
     assert conn.execute("SELECT COUNT(*) FROM peers WHERE deleted_at IS NOT NULL").fetchone()[0] == 2
 
 
+def test_disable_enable_many_restart_once(env):
+    m, tt, d, conn = env
+    ids = [pid_of(conn, "Анна"), pid_of(conn, "Борис")]
+    before, pw = tt.restarts, creds(d)
+    assert sorted(m.disable_many(ids + [999])) == sorted(ids)
+    assert tt.restarts == before + 1 and not {"anna", "boris"} & set(creds(d))
+    assert m.disable_many(ids) == [] and tt.restarts == before + 1        # уже отключены — перезапуска нет
+    assert sorted(m.enable_many(ids)) == sorted(ids)
+    assert tt.restarts == before + 2 and creds(d) == pw                   # те же пароли — прежние конфиги работают
+
+
 def test_rekey_changes_password(env):
     m, tt, d, conn = env
     pid = pid_of(conn, "Анна")

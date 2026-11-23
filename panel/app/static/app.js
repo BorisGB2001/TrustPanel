@@ -191,29 +191,37 @@ document.querySelectorAll("select[data-autosubmit]").forEach((s) => s.addEventLi
 })();
 
 // Ширина столбцов: потянуть за правый край заголовка; ширина запоминается в браузере для этой таблицы
-// (страница без номеров в пути + порядковый номер таблицы + число столбцов). Двойной щелчок по краю — снова автоширина.
+// (её имя из data-cols в шаблоне + число столбцов: набор столбцов зависит от роли). Двойной щелчок по краю — снова автоширина.
 (function () {
   const KEY = "colw:";
   const store = {
     get(k) { try { return JSON.parse(localStorage.getItem(KEY + k)); } catch (e) { return null; } },
     set(k, v) { try { v ? localStorage.setItem(KEY + k, JSON.stringify(v)) : localStorage.removeItem(KEY + k); } catch (e) { /* приватный режим */ } },
   };
-  const page = location.pathname.replace(/\/\d+(?=\/|$)/g, "/*");
   let justDragged = 0;
   // клик по заголовку сразу после перетаскивания не должен сортировать таблицу клиентов
   document.addEventListener("click", (e) => { if (Date.now() - justDragged < 300 && e.target.closest("th")) e.stopPropagation(); }, true);
 
-  document.querySelectorAll("table.tbl").forEach((table, n) => {
+  document.querySelectorAll("table.tbl[data-cols]").forEach((table) => {
     const row = table.tHead && table.tHead.rows[table.tHead.rows.length - 1];
     if (!row || row.cells.length < 2) return;
     const ths = Array.from(row.cells);
     if (ths.some((th) => th.colSpan > 1)) return;
-    const key = page + "#" + n + ":" + ths.length;    // без текста заголовков: смена языка ширину не сбрасывает
+    const key = table.dataset.cols + ":" + ths.length;    // без текста заголовков: смена языка ширину не сбрасывает
     const freeze = () => ths.forEach((th) => { th.style.width = th.getBoundingClientRect().width + "px"; });
+    // таблица шире карточки прокручивается внутри неё, а не раздвигает страницу
+    const wrap = () => {
+      if (table.parentElement.classList.contains("scroll")) return;
+      const box = document.createElement("div");
+      box.className = "scroll";
+      table.replaceWith(box);
+      box.appendChild(table);
+    };
     const fix = () => { table.style.tableLayout = "fixed"; table.style.width = ths.reduce((s, th) => s + parseFloat(th.style.width), 0) + "px"; };
     const saved = store.get(key);
     if (Array.isArray(saved) && saved.length === ths.length) {
       ths.forEach((th, i) => { th.style.width = saved[i] + "px"; });
+      wrap();
       fix();
       table.classList.add("resized");
     }
@@ -226,9 +234,9 @@ document.querySelectorAll("select[data-autosubmit]").forEach((s) => s.addEventLi
       grip.addEventListener("pointerdown", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!table.classList.contains("resized")) { freeze(); fix(); table.classList.add("resized"); }
+        if (!table.classList.contains("resized")) { freeze(); wrap(); fix(); table.classList.add("resized"); }
         const x0 = e.clientX, w0 = parseFloat(th.style.width);
-        grip.setPointerCapture(e.pointerId);
+        try { grip.setPointerCapture(e.pointerId); } catch (err) { /* указатель уже отпущен */ }
         document.body.classList.add("col-resizing");
         const move = (ev) => { th.style.width = Math.max(40, Math.round(w0 + ev.clientX - x0)) + "px"; fix(); };
         const up = () => {

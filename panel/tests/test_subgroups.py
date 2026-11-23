@@ -89,3 +89,30 @@ def test_breadcrumbs(client, world):
     assert 'aria-current="page">Борис' in crumbs
     over = client.get(f"/?group={ga}").text
     assert f'<a href="/?group={sub}">A-Казань</a>' in over                        # ссылки на подгруппы
+
+
+def test_crumbs_do_not_reveal_foreign_groups(client, world):
+    """Администратор группы A по ?group=<чужая> не узнаёт её название из пути по группам."""
+    from app import groups
+    conn, ga, gb = world
+    secret = groups.create(conn, "Секретный отдел", parent_id=gb)
+    for gid in (gb, secret):
+        assert "Секретный отдел" not in client.get(f"/?group={gid}").text
+    assert 'class="crumbs"' in client.get(f"/?group={ga}").text
+
+
+def test_series_keys_follow_buckets(monkeypatch):
+    """Шкала графика совпадает с ключами traffic_hour: часы UTC и начала суток панели, без дублей при переводе часов."""
+    import datetime
+    from zoneinfo import ZoneInfo
+    from app import fmt, main
+    monkeypatch.setattr(fmt, "TZ", ZoneInfo("Asia/Kolkata"))                 # +05:30: полночь — не начало часа
+    now = int(datetime.datetime(2026, 11, 5, 9, 10, tzinfo=fmt.TZ).timestamp())
+    hours = main.series_keys(fmt.day_start(now), now, False)
+    assert all(k % 3600 == 0 for k in hours) and hours[0] >= fmt.day_start(now) and hours[-1] == now - now % 3600
+    monkeypatch.setattr(fmt, "TZ", ZoneInfo("Europe/Berlin"))                # 25 октября 2026 — сутки из 25 часов
+    now = int(datetime.datetime(2026, 10, 31, 10, 0, tzinfo=fmt.TZ).timestamp())
+    start = int(datetime.datetime(2026, 10, 1, tzinfo=fmt.TZ).timestamp())
+    days = main.series_keys(start, now, True)
+    assert len(days) == len(set(days)) == 31 and days[-1] == fmt.day_start(now)
+    assert all(fmt.day_start(k) == k for k in days)

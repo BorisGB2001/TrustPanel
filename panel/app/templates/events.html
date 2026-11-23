@@ -15,7 +15,7 @@
     </form>
   </div>
   <div class="scroll">
-  <table class="tbl">
+  <table class="tbl" data-cols="events-1">
     {% for e in rows %}
     <tr class="{{ 'alert' if e.kind.startswith('alert_') and not e.acked }}"><td class="muted nowrap">{{ e.ts|dt("%d.%m %H:%M:%S") }}</td>
       <td>{% if e.peer_id %}<a href="/peer/{{ e.peer_id }}">{{ e.name }}</a>{% endif %}</td>

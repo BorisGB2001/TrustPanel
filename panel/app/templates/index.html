@@ -60,7 +60,7 @@
     </details>
   </div>
   <div class="scroll">
-  <table class="tbl sortable" id="clients">
+  <table class="tbl sortable" data-cols="index-1" id="clients">
     <thead><tr>
       <th>{{ _("Status") }}</th><th>{{ _("Name") }}</th><th>{{ _("Login") }}</th><th>{{ _("Last seen") }}</th><th>{{ _("From") }}</th>
       <th class="num">{{ _("Today") }} ↓</th><th class="num">{{ _("Today") }} ↑</th><th class="num">{{ _("Total") }} ↓/↑</th>
@@ -88,7 +88,7 @@
 
 <section class="card">
   <h1>{{ _("Top users, 24 h") }}</h1>
-  <table class="tbl">
+  <table class="tbl" data-cols="index-2">
     {% for t in top_clients %}<tr><td><a href="/peer/{{ t.id }}">{{ t.name }}</a></td><td class="num">↓ {{ t.d|size }}</td><td class="num muted">↑ {{ t.u|size }}</td></tr>
     {% else %}<tr><td class="muted">{{ _("No data.") }}</td></tr>{% endfor %}
   </table>
@@ -96,7 +96,7 @@
 
 <section class="card">
   <h1>{{ _("Events") }}</h1>
-  <table class="tbl">
+  <table class="tbl" data-cols="index-3">
     {% for e in events %}
     <tr><td class="muted nowrap">{{ e.ts|dt }}</td><td>{{ e.name or "" }}</td><td>{{ event_text(e.kind, e.detail) }}</td></tr>
     {% else %}<tr><td class="muted">{{ _("No events yet.") }}</td></tr>{% endfor %}

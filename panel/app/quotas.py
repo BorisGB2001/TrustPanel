@@ -129,32 +129,31 @@ class Quotas:
         return n
 
     def _block(self, peer_ids: list[int], mark: str) -> None:
-        for pid in peer_ids:
-            row = self.conn.execute("SELECT disabled, deleted_at FROM peers WHERE id = ?", (pid,)).fetchone()
-            if row is None or row["disabled"] or row["deleted_at"]:
-                continue
-            try:
-                self.manager.disable(pid, actor="quota")
+        """Отключает клиентов одним изменением: у TrustTunnel каждое изменение состава — перезапуск endpoint'а."""
+        try:
+            for pid in self.manager.disable_many(peer_ids, actor="quota"):
                 self.conn.execute("UPDATE peers SET quota_blocked = ? WHERE id = ?", (mark, pid))
-            except Exception:  # noqa: BLE001 — один сбой не должен мешать остальным
-                log.exception("quota: disable %s", pid)
+        except Exception:  # noqa: BLE001 — сбой одной квоты не должен мешать остальным
+            log.exception("quota: disable %s", peer_ids)
 
     def release(self, now: int) -> int:
         """Снять блокировку квотой: новый период, квоту сняли или подняли выше расхода; включённых вручную — отпустить."""
-        n = 0
+        free = []
         for p in self.conn.execute("SELECT id, disabled, quota_blocked FROM peers WHERE quota_blocked IS NOT NULL").fetchall():
             if not p["disabled"]:          # администратор включил вручную — дальше этот период не трогаем
                 self.conn.execute("UPDATE peers SET quota_blocked = NULL WHERE id = ?", (p["id"],))
-                continue
-            if self._still_blocked(p["quota_blocked"], now):
-                continue
-            try:
-                self.manager.enable(p["id"], actor="quota")
-                self.conn.execute("UPDATE peers SET quota_blocked = NULL WHERE id = ?", (p["id"],))
-                n += 1
-            except Exception:  # noqa: BLE001
-                log.exception("quota: enable %s", p["id"])
-        return n
+            elif not self._still_blocked(p["quota_blocked"], now):
+                free.append(p["id"])
+        if not free:
+            return 0
+        try:
+            done = self.manager.enable_many(free, actor="quota")     # все разом — один перезапуск endpoint'а
+        except Exception:  # noqa: BLE001
+            log.exception("quota: enable %s", free)
+            return 0
+        for pid in done:
+            self.conn.execute("UPDATE peers SET quota_blocked = NULL WHERE id = ?", (pid,))
+        return len(done)
 
     def _still_blocked(self, mark: str, now: int) -> bool:
         try:

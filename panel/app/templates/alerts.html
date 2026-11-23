@@ -8,7 +8,7 @@
       <button type="submit" class="secondary">{{ _("Mark all as read") }}</button></form>
   </div>
   <div class="scroll">
-  <table class="tbl">
+  <table class="tbl" data-cols="alerts-1">
     {% for e in rows %}
     <tr class="{{ '' if e.acked else 'alert' }}"><td class="muted nowrap">{{ e.ts|dt }}</td>
       <td>{% if e.peer_id %}<a href="/peer/{{ e.peer_id }}">{{ e.name }}</a>{% endif %}</td>

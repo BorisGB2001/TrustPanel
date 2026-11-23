@@ -68,7 +68,7 @@
 {% if history %}
 <section class="card">
   <h1>{{ _("History") }}</h1>
-  <table class="tbl">{% for e in history %}<tr class="{{ 'alert' if e.kind == 'alert_backup' else '' }}"><td class="nowrap">{{ e.ts|dt }}</td><td>{{ event_text(e.kind, e.detail) }}</td></tr>{% endfor %}</table>
+  <table class="tbl" data-cols="backups-1">{% for e in history %}<tr class="{{ 'alert' if e.kind == 'alert_backup' else '' }}"><td class="nowrap">{{ e.ts|dt }}</td><td>{{ event_text(e.kind, e.detail) }}</td></tr>{% endfor %}</table>
 </section>
 {% endif %}
 {% endblock %}

@@ -23,7 +23,7 @@
 <section class="grid2">
   <div class="card"><h1>{{ _("Top 10 by traffic") }}</h1>{{ chart|safe }}</div>
   <div class="card"><h1>{{ _("By group") }}</h1>{{ group_chart|safe }}
-    {% if group_totals %}<table class="tbl compact-tbl">
+    {% if group_totals %}<table class="tbl compact-tbl" data-cols="archive-1">
       <thead><tr><th>{{ _("Group") }}</th><th class="num">{{ _("Clients") }}</th><th class="num">{{ _("Downloaded") }}</th><th class="num">{{ _("Uploaded") }}</th></tr></thead>
       {% for name, v in group_totals %}<tr><td>{{ name }}</td><td class="num">{{ v[2] }}</td><td class="num">{{ v[0]|size }}</td><td class="num">{{ v[1]|size }}</td></tr>{% endfor %}
     </table>{% endif %}</div>
@@ -31,7 +31,7 @@
 <section class="card">
   <h1>{{ _("Clients") }}</h1>
   <div class="scroll">
-  <table class="tbl">
+  <table class="tbl" data-cols="archive-2">
     <thead><tr><th>{{ _("Client") }}</th><th>{{ _("Login") }}</th><th class="num">{{ _("Downloaded") }}</th><th class="num">{{ _("Uploaded") }}</th><th class="num">{{ _("Sessions") }}</th><th class="num">{{ _("Online") }}</th></tr></thead>
     {% for r in rows %}<tr><td><a href="/peer/{{ r.peer_id }}">{{ r.name }}</a></td><td><code>{{ r.username }}</code></td>
       <td class="num">{{ r.tx|size }}</td><td class="num">{{ r.rx|size }}</td><td class="num">{{ r.sessions }}</td><td class="num">{{ r.online_sec|duration }}</td></tr>{% endfor %}

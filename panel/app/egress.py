@@ -138,8 +138,8 @@ class Egress:
         finally:
             self.running = False
 
-    def _cmd(self, args: list[str], timeout: float) -> str:
-        r = subprocess.run(self.wrap(args), capture_output=True, text=True, timeout=timeout)
+    def _cmd(self, args: list[str], timeout: float, stdin: str | None = None) -> str:
+        r = subprocess.run(self.wrap(args), capture_output=True, text=True, timeout=timeout, input=stdin)
         if r.returncode != 0 and not r.stdout:
             raise RuntimeError((r.stderr.strip() or f"exit {r.returncode}")[:200])
         return r.stdout
@@ -172,11 +172,12 @@ class Egress:
             out["ip"] = ip = resolve(job["host"])
             out["hops"] = self._traceroute(ip)
             if job.get("url"):
-                hdr = []
+                hdr, secret = [], None
                 if job["service"] == "ipinfo.io" and (tok := self.token):
-                    hdr = ["-H", f"Authorization: Bearer {tok}"]
+                    # заголовок с ключом — через stdin, а не аргументом: аргументы видны в списке процессов хоста
+                    hdr, secret = ["-H", "@-"], f"Authorization: Bearer {tok}\n"
                 body = self._cmd(["curl", "-sS", "-m", "12", "-A", "Mozilla/5.0", "--resolve", f"{job['host']}:443:{ip}",
-                                  *hdr, job["url"]], timeout=20)
+                                  *hdr, job["url"]], timeout=20, stdin=secret)
                 out["exit"] = parse_whoami(job["service"], body)
                 if not out["exit"].get("ip"):
                     # например, 429 у ipinfo.io без ключа: общий адрес WARP быстро исчерпывает бесплатный лимит

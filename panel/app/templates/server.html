@@ -15,7 +15,7 @@
 
 <section class="card">
   <h1>{{ _("Panel collectors") }}</h1>
-  <table class="tbl">
+  <table class="tbl" data-cols="server-1">
     {% for name, st in info.collectors.items() %}
     <tr><td>{{ _(name) }}</td>
       <td>{% if not st %}<span class="muted">{{ _("not running") }}</span>{% elif st[1] %}<span class="error">{{ st[1] }}</span>{% else %}<span class="st st-online">{{ _("running") }}</span>{% endif %}</td>
@@ -42,7 +42,7 @@
   {% if egress %}
   {% for e in egress.errors %}<div class="error small">{{ e }}</div>{% endfor %}
   <h2>{{ _("Exit addresses") }}</h2>
-  <table class="tbl">
+  <table class="tbl" data-cols="server-2">
     {% for e in egress.exits %}<tr><td>{{ iplink(e.ip) }}</td>
       <td class="small">{% for svc, d in e.seen_by.items() %}<div><b>{{ svc }}</b>{% for k, v in d.items() if k != "ip" and v is not none %} · {{ k }}: {{ v }}{% endfor %}</div>{% endfor %}</td></tr>
     {% else %}<tr><td class="muted">{{ _("none") }}</td></tr>{% endfor %}

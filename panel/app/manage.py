@@ -268,6 +268,39 @@ class Manager:
             self.conn.execute("UPDATE peers SET disabled = 0 WHERE id = ?", (peer_id,))
             db.event(self.conn, "admin_enable", peer_id, {"name": row["name"], "username": row["username"]}, actor, actor_ip)
 
+    def disable_many(self, peer_ids: list[int], actor: str | None = None, actor_ip: str | None = None) -> list[int]:
+        """Отключить нескольких клиентов (квота группы) одним перезапуском endpoint'а. Возвращает отключённых;
+        уже отключённые, удалённые и те, чей пароль панель не знает (их нельзя было бы включить), пропускаются."""
+        with self.tt.locked():
+            rows = [r for r in self.conn.execute("SELECT * FROM peers WHERE deleted_at IS NULL AND disabled = 0").fetchall()
+                    if r["id"] in set(peer_ids) and r["password_enc"]]
+            if not rows:
+                return []
+            gone = {r["username"] for r in rows}
+            self._apply("disable", lambda clients: [c for c in clients if c["username"] not in gone])
+            for r in rows:
+                self.conn.execute("UPDATE peers SET disabled = 1 WHERE id = ?", (r["id"],))
+                self.conn.execute("UPDATE sessions SET end = COALESCE(last_active, start) WHERE peer_id = ? AND end IS NULL", (r["id"],))
+                db.event(self.conn, "admin_disable", r["id"], {"name": r["name"], "username": r["username"]}, actor, actor_ip)
+            return [r["id"] for r in rows]
+
+    def enable_many(self, peer_ids: list[int], actor: str | None = None, actor_ip: str | None = None) -> list[int]:
+        """Включить нескольких клиентов (новый период квоты) одним перезапуском. Возвращает включённых; клиенты без
+        пароля в панели или с логином, занятым в credentials.toml вне панели, пропускаются."""
+        with self.tt.locked():
+            rows = [r for r in self.conn.execute("SELECT * FROM peers WHERE deleted_at IS NULL AND disabled = 1").fetchall()
+                    if r["id"] in set(peer_ids) and r["password_enc"]]
+            taken = {c["username"] for c in self.tt.read_credentials()}
+            rows = [r for r in rows if r["username"] not in taken]
+            if not rows:
+                return []
+            add = [{"username": r["username"], "password": self._password(r)} for r in rows]
+            self._apply("enable", lambda clients: clients + add)
+            for r in rows:
+                self.conn.execute("UPDATE peers SET disabled = 0 WHERE id = ?", (r["id"],))
+                db.event(self.conn, "admin_enable", r["id"], {"name": r["name"], "username": r["username"]}, actor, actor_ip)
+            return [r["id"] for r in rows]
+
     def password(self, peer_id: int) -> str | None:
         row = self.conn.execute("SELECT password_enc FROM peers WHERE id = ?", (peer_id,)).fetchone()
         return self.fernet.decrypt(row[0]).decode() if row and row[0] else None

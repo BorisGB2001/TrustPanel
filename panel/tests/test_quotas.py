@@ -23,6 +23,21 @@ class FakeManager:
         self.calls.append(("enable", pid))
         self.conn.execute("UPDATE peers SET disabled = 0 WHERE id = ?", (pid,))
 
+    # как Manager: разом, пропуская тех, кого менять не нужно; batches — сколько было перезапусков endpoint'а
+    def disable_many(self, pids, actor=None):
+        live = [p for p in pids if self.conn.execute(
+            "SELECT 1 FROM peers WHERE id = ? AND disabled = 0 AND deleted_at IS NULL", (p,)).fetchone()]
+        self.batches = getattr(self, "batches", 0) + bool(live)
+        for p in live:
+            self.disable(p)
+        return live
+
+    def enable_many(self, pids, actor=None):
+        self.batches = getattr(self, "batches", 0) + bool(pids)
+        for p in pids:
+            self.enable(p)
+        return list(pids)
+
 
 def setup(tmp_path):
     conn = db.open_db(tmp_path / "p.db")
@@ -55,6 +70,7 @@ def test_group_quota_warns_once_and_disables(tmp_path):
     traffic(conn, 1, 2)                                    # 10.5 — превышение
     q.check(NOW + 600)
     assert sorted(m.calls) == [("disable", 1), ("disable", 2)]
+    assert m.batches == 1                                            # группа отключается одним перезапуском
     assert conn.execute("SELECT COUNT(*) FROM peers WHERE quota_blocked LIKE 'group:%'").fetchone()[0] == 2
     assert conn.execute("SELECT disabled FROM peers WHERE id = 3").fetchone()[0] == 0   # не из группы
     assert '"level": 100' in alerts(conn)[-1]

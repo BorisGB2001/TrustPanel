@@ -119,7 +119,7 @@
 <section class="card">
   <h1>{{ _("Sessions") }}</h1>
   <div class="scroll">
-  <table class="tbl">
+  <table class="tbl" data-cols="peer-1">
     <thead><tr><th>{{ _("Start") }}</th><th>{{ _("End") }}</th><th>{{ _("Duration") }}</th><th>{{ _("From") }}</th><th class="num">↓</th><th class="num">↑</th></tr></thead>
     {% for s in sessions %}
     <tr>
@@ -136,7 +136,7 @@
 
 <section class="card">
   <h1>{{ _("Connected from") }}</h1>
-  <table class="tbl">
+  <table class="tbl" data-cols="peer-2">
     <thead><tr><th>IP</th><th>{{ _("Country, city") }}</th><th>{{ _("Provider") }}</th><th>{{ _("First seen") }}</th><th>{{ _("Last seen") }}</th></tr></thead>
     {% for e in endpoints %}
     <tr><td><code>{{ e.ip }}</code></td><td>{{ e.country|flag }} {{ e.country or "" }} {{ e.city or "" }}</td>
@@ -148,7 +148,7 @@
 
 <section class="card">
   <h1>{{ _("Events") }}</h1>
-  <table class="tbl">
+  <table class="tbl" data-cols="peer-3">
     {% for e in events %}
     <tr><td class="muted nowrap">{{ e.ts|dt }}</td><td>{{ event_text(e.kind, e.detail) }}</td><td class="muted">{{ e.actor or "" }}</td></tr>
     {% else %}<tr><td class="muted">{{ _("No events.") }}</td></tr>{% endfor %}

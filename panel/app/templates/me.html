@@ -63,7 +63,7 @@
 
 <section class="card">
   <h1>{{ _("Sessions") }}</h1>
-  <div class="scroll"><table class="tbl">
+  <div class="scroll"><table class="tbl" data-cols="me-1">
     <thead><tr><th>{{ _("Start") }}</th><th>{{ _("Duration") }}</th><th>{{ _("From") }}</th><th class="num">↓</th><th class="num">↑</th></tr></thead>
     {% for s in sessions %}<tr><td class="nowrap">{{ s.start|dt }}</td><td>{{ ((s.end or now) - s.start)|duration }}{% if not s.end %} · {{ _("ongoing") }}{% endif %}</td>
       <td>{{ s.country|flag }} <code>{{ s.endpoint_ip or "—" }}</code> <span class="muted small">{{ s.org or "" }}</span></td>

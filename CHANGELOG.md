@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.0 — 2026-11-23
+
+- Tables: drag the right edge of a column header to change its width; the widths are remembered in the browser for
+  each table. Double-click the edge to return to automatic widths. A table wider than its card scrolls inside it.
+- Action messages ("Saved", errors) are corner toasts instead of a bar that shifts the page (from AWG Panel 1.15.1).
+- A group quota with "disable" switches the whole group off (and back on in the next period) with one endpoint restart
+  instead of one restart per client.
+- Fixes from a code review:
+    - a group administrator could learn the names of other groups from the breadcrumbs of `/?group=N`;
+    - the hover chart of the top 10 and of the group traffic was empty in time zones with a 30/45-minute offset and
+      lost the current day in the month of the switch to winter time;
+    - the monthly archive counts a group together with its subgroups, like the Groups page;
+    - the ipinfo.io key is passed to curl through stdin, not as an argument visible in the process list;
+    - the "no group" row on the Groups page was one column too wide.
+
 ## 1.2.2 — 2026-11-18
 
 - HTTPS: Let's Encrypt certificate for the server IP (`shortlived` profile, about 6 days) instead of Caddy's internal
