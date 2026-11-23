@@ -649,5 +649,7 @@
   "November": "November",
   "December": "December",
   "clients: {n}": "clients: {n}",
-  "The sign-in page was out of date. Please enter your details again.": "The sign-in page was out of date. Please enter your details again."
+  "The sign-in page was out of date. Please enter your details again.": "The sign-in page was out of date. Please enter your details again.",
+  "Close": "Close",
+  "Close all notifications": "Close all notifications"
 }

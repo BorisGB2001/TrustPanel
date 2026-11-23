@@ -139,3 +139,115 @@ document.querySelectorAll("select[data-autosubmit]").forEach((s) => s.addEventLi
     }
   });
 })();
+
+// Уведомления: плашки в правом верхнем углу. Держатся несколько секунд (ошибки — дольше, при наведении — пока
+// мышь над ними) и плавно исчезают; ✕ закрывает одну, «Закрыть все» — все, когда их больше одной.
+(function () {
+  const box = document.getElementById("toasts");
+  if (!box) return;
+  const all = document.createElement("button");
+  all.type = "button";
+  all.className = "toast-all";
+  all.textContent = box.dataset.closeAll || "Close all";
+  all.hidden = true;
+  all.addEventListener("click", () => box.querySelectorAll(".toast").forEach((t) => hide(t)));
+  box.appendChild(all);
+  const refresh = () => { all.hidden = box.querySelectorAll(".toast:not(.leaving)").length < 2; };
+
+  function hide(t) {
+    if (t.classList.contains("leaving")) return;
+    t.classList.add("leaving");
+    refresh();
+    setTimeout(() => { t.remove(); refresh(); }, 400);
+  }
+
+  function arm(t) {
+    const x = document.createElement("button");
+    x.type = "button";
+    x.className = "toast-x";
+    x.setAttribute("aria-label", box.dataset.close || "Close");
+    x.textContent = "✕";
+    x.addEventListener("click", () => hide(t));
+    t.appendChild(x);
+    let left = t.classList.contains("toast-error") ? 10000 : 5000, started = Date.now(), timer;
+    const go = () => { started = Date.now(); timer = setTimeout(() => hide(t), left); };
+    t.addEventListener("mouseenter", () => { clearTimeout(timer); left = Math.max(1500, left - (Date.now() - started)); });
+    t.addEventListener("mouseleave", go);
+    go();
+  }
+
+  box.querySelectorAll(".toast").forEach(arm);
+  refresh();
+  // для скриптов страницы: window.toast("Сохранено") / window.toast("Ошибка", "error")
+  window.toast = (text, kind) => {
+    const t = document.createElement("div");
+    t.className = "toast toast-" + (kind || "ok");
+    t.setAttribute("role", kind === "error" ? "alert" : "status");
+    t.textContent = text;
+    box.insertBefore(t, all);
+    arm(t);
+    refresh();
+  };
+})();
+
+// Ширина столбцов: потянуть за правый край заголовка; ширина запоминается в браузере для этой таблицы
+// (страница без номеров в пути + порядковый номер таблицы + число столбцов). Двойной щелчок по краю — снова автоширина.
+(function () {
+  const KEY = "colw:";
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem(KEY + k)); } catch (e) { return null; } },
+    set(k, v) { try { v ? localStorage.setItem(KEY + k, JSON.stringify(v)) : localStorage.removeItem(KEY + k); } catch (e) { /* приватный режим */ } },
+  };
+  const page = location.pathname.replace(/\/\d+(?=\/|$)/g, "/*");
+  let justDragged = 0;
+  // клик по заголовку сразу после перетаскивания не должен сортировать таблицу клиентов
+  document.addEventListener("click", (e) => { if (Date.now() - justDragged < 300 && e.target.closest("th")) e.stopPropagation(); }, true);
+
+  document.querySelectorAll("table.tbl").forEach((table, n) => {
+    const row = table.tHead && table.tHead.rows[table.tHead.rows.length - 1];
+    if (!row || row.cells.length < 2) return;
+    const ths = Array.from(row.cells);
+    if (ths.some((th) => th.colSpan > 1)) return;
+    const key = page + "#" + n + ":" + ths.length;    // без текста заголовков: смена языка ширину не сбрасывает
+    const freeze = () => ths.forEach((th) => { th.style.width = th.getBoundingClientRect().width + "px"; });
+    const fix = () => { table.style.tableLayout = "fixed"; table.style.width = ths.reduce((s, th) => s + parseFloat(th.style.width), 0) + "px"; };
+    const saved = store.get(key);
+    if (Array.isArray(saved) && saved.length === ths.length) {
+      ths.forEach((th, i) => { th.style.width = saved[i] + "px"; });
+      fix();
+      table.classList.add("resized");
+    }
+    ths.forEach((th, i) => {
+      if (i === ths.length - 1) return;               // последний столбец забирает остаток
+      const grip = document.createElement("span");
+      grip.className = "col-grip";
+      grip.setAttribute("aria-hidden", "true");
+      th.appendChild(grip);
+      grip.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!table.classList.contains("resized")) { freeze(); fix(); table.classList.add("resized"); }
+        const x0 = e.clientX, w0 = parseFloat(th.style.width);
+        grip.setPointerCapture(e.pointerId);
+        document.body.classList.add("col-resizing");
+        const move = (ev) => { th.style.width = Math.max(40, Math.round(w0 + ev.clientX - x0)) + "px"; fix(); };
+        const up = () => {
+          grip.removeEventListener("pointermove", move);
+          document.body.classList.remove("col-resizing");
+          justDragged = Date.now();
+          store.set(key, ths.map((c) => Math.round(parseFloat(c.style.width))));
+        };
+        grip.addEventListener("pointermove", move);
+        grip.addEventListener("pointerup", up, { once: true });
+        grip.addEventListener("pointercancel", up, { once: true });
+      });
+      grip.addEventListener("dblclick", (e) => {
+        e.stopPropagation();
+        store.set(key, null);
+        ths.forEach((c) => { c.style.width = ""; });
+        table.style.tableLayout = table.style.width = "";
+        table.classList.remove("resized");
+      });
+    });
+  });
+})();
