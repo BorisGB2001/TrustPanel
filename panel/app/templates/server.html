@@ -65,13 +65,22 @@
   </form></details>
 </section>
 
-<section class="card">
+<section class="card" id="tt">
   <h1>TrustTunnel</h1>
   <p class="muted small">{{ info.version or "" }}{% if info.state %} · {{ info.state }}{% endif %}</p>
   <div class="params">{% for k, v in (info.params or {}).items() %}<div class="param"><div class="muted small">{{ k }}</div><code>{{ v }}</code></div>{% endfor %}</div>
   {% if info.metrics %}<h2>{{ _("Endpoint metrics") }}</h2>
   <div class="params">{% for k, v in info.metrics.items() %}<div class="param"><div class="muted small">{{ k }}</div><code>{{ v|size if k.startswith("process_resident") else v }}</code></div>{% endfor %}</div>{% endif %}
   <p class="muted small">{{ _("Read-only parameters from vpn.toml and hosts.toml in /opt/trusttunnel. Change them there and restart the trusttunnel service.") }}</p>
+
+  <details><summary class="small">{{ _("Custom SNI for exported configs") }}</summary>
+  <form method="post" action="/server/tt/sni"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <p class="muted small">{{ _("Exported client configs send this name in the TLS ClientHello (what DPI and antiviruses see) instead of the real host name; the certificate is still verified against the real host name. The name must be in allowed_sni in hosts.toml. Empty — send the host name. Re-issue client configs after changing it.") }}</p>
+    <label>{{ _("Custom SNI") }}
+      <input name="custom_sni" value="{{ tt_sni }}" placeholder="metrika.yandex.ru" autocomplete="off"></label>
+    {% if allowed_sni %}<p class="muted small">{{ _("Allowed on the server:") }} {% for s in allowed_sni %}<code>{{ s }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+    <button type="submit">{{ _("Save") }}</button>
+  </form></details>
 </section>
 
 <section class="card">

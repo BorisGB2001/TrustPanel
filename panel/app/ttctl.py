@@ -149,6 +149,19 @@ class TT:
             return []
         return [h.get("hostname", "") for h in data.get("main_hosts", []) if h.get("hostname")]
 
+    def allowed_sni(self) -> list[str]:
+        """Имена, которые endpoint примет как SNI: hostname каждого main_host плюс его allowed_sni (без дублей)."""
+        try:
+            data = tomllib.loads((self.dir / "hosts.toml").read_text(encoding="utf-8"))
+        except (OSError, tomllib.TOMLDecodeError):
+            return []
+        out: list[str] = []
+        for h in data.get("main_hosts", []):
+            if h.get("hostname"):
+                out.append(h["hostname"])
+            out += [s for s in h.get("allowed_sni", []) if s]
+        return list(dict.fromkeys(out))
+
     # ---- endpoint ----
 
     def binary(self) -> str:
@@ -157,7 +170,7 @@ class TT:
     def version(self) -> str:
         return self._run([self.binary(), "-v"]).strip()
 
-    def export(self, username: str, password: str, fmt: str = "deeplink") -> str:
+    def export(self, username: str, password: str, fmt: str = "deeplink", custom_sni: str = "") -> str:
         """Конфиг клиента от самого endpoint'а: временный vpn.toml с одним этим клиентом в credentials —
         так работает и для отключённых (их нет в рабочем credentials.toml)."""
         vpn = (self.dir / "vpn.toml").read_text(encoding="utf-8")
@@ -168,6 +181,8 @@ class TT:
             (Path(tmp) / "vpn.toml").write_text(vpn, encoding="utf-8")
             args = [self.binary(), str(Path(tmp) / "vpn.toml"), "hosts.toml", "-c", username, "-a", self.s.tt_address,
                     "-f", fmt]
+            if custom_sni:
+                args += ["-s", custom_sni]
             if fmt == "deeplink" and self.s.tt_name:
                 args += ["-n", self.s.tt_name]
             for d in self.s.tt_dns:

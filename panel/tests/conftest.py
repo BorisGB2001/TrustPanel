@@ -44,8 +44,12 @@ class FakeTT(TT):
     def version(self):
         return "1.1.0"
 
-    def export(self, username, password, fmt="deeplink"):
-        return f"tt://?{username}:{password}" if fmt == "deeplink" else f'username = "{username}"\npassword = "{password}"\n'
+    def export(self, username, password, fmt="deeplink", custom_sni=""):
+        sni = f"&sni={custom_sni}" if custom_sni else ""
+        if fmt == "deeplink":
+            return f"tt://?{username}:{password}{sni}"
+        extra = f'custom_sni = "{custom_sni}"\n' if custom_sni else ""
+        return f'username = "{username}"\npassword = "{password}"\n{extra}'
 
     def set_stat(self, user, sessions=1, rx=0, tx=0, ip="203.0.113.5"):
         self.stats[user] = ClientStat(user, ip if sessions else None, sessions, rx, tx)

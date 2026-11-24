@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0 — 2026-11-24
+
+- Custom SNI masking: on the Server page you can set a name (e.g. `metrika.yandex.ru`) that exported client configs
+  send in the TLS ClientHello instead of the real host name, so DPI and antiviruses that dislike `*.sslip.io` see a
+  neutral name. The certificate is still verified against the real host name (valid Let's Encrypt), so there is no
+  certificate warning, and TLS 1.3 keeps the real certificate off the wire. The name must be listed in `allowed_sni`
+  of the main host in `hosts.toml`; the panel offers the server's allowed names and rejects anything else. Empty — the
+  host name is sent as before. Existing configs keep working; re-issue client configs to apply the masking.
+
 ## 1.3.0 — 2026-11-23
 
 - Tables: drag the right edge of a column header to change its width; the widths are remembered in the browser for

@@ -594,8 +594,10 @@ def build_config(m: Manager, peer_id: int) -> dict | None:
     password = m.password(peer_id) if row and not row["deleted_at"] else None
     if not password:
         return None
+    sni = db.get_state(m.conn, "custom_sni") or ""
     return {"name": row["name"], "username": row["username"], "disabled": row["disabled"],
-            "vpn": m.tt.export(row["username"], password, "deeplink"), "conf": m.tt.export(row["username"], password, "toml"),
+            "vpn": m.tt.export(row["username"], password, "deeplink", custom_sni=sni),
+            "conf": m.tt.export(row["username"], password, "toml", custom_sni=sni),
             "address": settings.tt_address}
 
 
@@ -1260,8 +1262,13 @@ def server_page(request: Request):
     if os.environ.get("PANEL_COLLECTORS", "1") == "1":
         eg.ensure_fresh()
     labels = load_egress_settings(request.app.state.db, eg)
+    try:
+        allowed_sni = TT(settings).allowed_sni()
+    except Exception:  # noqa: BLE001 — страница должна открываться и при недоступном TrustTunnel
+        allowed_sni = []
     return render(request, "server.html", info=server_info(request), now=int(time.time()), egress=eg.result,
-                  egress_running=eg.running, labels=labels, targets=eg.targets, ipinfo_set=bool(eg.token))
+                  egress_running=eg.running, labels=labels, targets=eg.targets, ipinfo_set=bool(eg.token),
+                  tt_sni=db.get_state(request.app.state.db, "custom_sni") or "", allowed_sni=allowed_sni)
 
 
 # ---- путь и адреса выхода ----
@@ -1318,6 +1325,31 @@ def egress_settings(request: Request, targets: str = Form(""), labels: str = For
     conn.commit()
     flash(request, t("Settings saved."))
     return RedirectResponse("/server#egress", status_code=303)
+
+
+@app.post("/server/tt/sni")
+def tt_sni(request: Request, custom_sni: str = Form(""), csrf: str = Form("")):
+    require_super(request)
+    check_csrf(request, csrf)
+    conn = request.app.state.db
+    sni = custom_sni.strip().lower()
+    if sni:
+        if "." not in sni or not re.fullmatch(r"[a-z0-9.-]{1,253}", sni):
+            flash(request, t("Custom SNI: a domain name like metrika.yandex.ru."), "error")
+            return RedirectResponse("/server#tt", status_code=303)
+        try:
+            allowed = [a.lower() for a in TT(settings).allowed_sni()]
+        except TTUnavailable:
+            allowed = []
+        if allowed and sni not in allowed:
+            flash(request, t("This SNI is not in allowed_sni on the server — add it to hosts.toml first. Allowed: {list}",
+                             list=", ".join(allowed)), "error")
+            return RedirectResponse("/server#tt", status_code=303)
+    db.set_state(conn, "custom_sni", sni)
+    db.event(conn, "tt_sni", detail={"custom_sni": sni}, actor=current_user(request), actor_ip=client_ip(request))
+    conn.commit()
+    flash(request, t("Settings saved."))
+    return RedirectResponse("/server#tt", status_code=303)
 
 
 @app.get("/server/ip/{ip}")

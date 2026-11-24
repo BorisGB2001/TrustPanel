@@ -651,5 +651,11 @@
   "clients: {n}": "клиентов: {n}",
   "The sign-in page was out of date. Please enter your details again.": "Страница входа устарела. Введите данные ещё раз.",
   "Close": "Закрыть",
-  "Close all notifications": "Закрыть все уведомления"
+  "Close all notifications": "Закрыть все уведомления",
+  "Custom SNI for exported configs": "Маскировка SNI в выгружаемых конфигах",
+  "Exported client configs send this name in the TLS ClientHello (what DPI and antiviruses see) instead of the real host name; the certificate is still verified against the real host name. The name must be in allowed_sni in hosts.toml. Empty — send the host name. Re-issue client configs after changing it.": "Выгружаемые конфиги клиентов отправляют это имя в TLS ClientHello (его видят DPI и антивирусы) вместо настоящего имени хоста; сертификат при этом по-прежнему проверяется по настоящему имени хоста. Имя должно быть в allowed_sni в hosts.toml. Пусто — отправлять имя хоста. После изменения перевыпустите конфиги клиентам.",
+  "Custom SNI": "Маскировочный SNI",
+  "Allowed on the server:": "Разрешены на сервере:",
+  "Custom SNI: a domain name like metrika.yandex.ru.": "Маскировочный SNI: доменное имя, например metrika.yandex.ru.",
+  "This SNI is not in allowed_sni on the server — add it to hosts.toml first. Allowed: {list}": "Этого SNI нет в allowed_sni на сервере — сначала добавьте его в hosts.toml. Разрешены: {list}"
 }
